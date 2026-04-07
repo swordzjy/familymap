@@ -157,36 +157,6 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .typing-dot:nth-child(3){animation-delay:0.4s;}
 @keyframes typing{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
 
-/* 重新分析等待状态 */
-.reanalyzing-overlay{
-  position:fixed;top:0;left:0;right:0;bottom:0;
-  background:rgba(10,8,6,0.85);backdrop-filter:blur(4px);
-  z-index:100;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  animation:fadeIn 0.3s ease;
-}
-.reanalyzing-spinner{
-  width:64px;height:64px;
-  border:4px solid rgba(200,169,110,0.2);
-  border-top-color:var(--gold);
-  border-radius:50%;
-  animation:spin 1s linear infinite;
-}
-.reanalyzing-text{
-  margin-top:24px;
-  color:var(--cream);
-  font-size:15px;
-  font-family:var(--sans);
-  text-align:center;
-}
-.reanalyzing-subtext{
-  margin-top:8px;
-  color:var(--mist2);
-  font-size:12px;
-}
-@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
-@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
-
 /* 快捷操作栏 */
 .quick-actions{
   position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:0;right:0;
@@ -310,7 +280,6 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   <!-- 快捷操作栏 -->
   <div class="quick-actions" id="quick-actions">
     <button class="quick-action-btn" id="finish-btn" onclick="userFinish()">我说完了</button>
-    <button class="quick-action-btn" id="reanalyze-btn" onclick="reanalyzeData()" style="display:none;">🔄 重新分析</button>
     <button class="quick-action-btn primary" id="organize-btn" onclick="goToStoryTimeline()" style="display:none;">整理家族故事 →</button>
   </div>
 
@@ -392,11 +361,12 @@ if (savedState && savedState.messages.length > 0) {
     const finishBtn = document.getElementById('finish-btn');
     if (finishBtn) finishBtn.style.display = 'none';
     const organizeBtn = document.getElementById('organize-btn');
-    if (organizeBtn) organizeBtn.style.display = 'block';
-    // 如果已有 familyId，显示"重新分析"按钮
-    if (savedState.familyId) {
-      const reanalyzeBtn = document.getElementById('reanalyze-btn');
-      if (reanalyzeBtn) reanalyzeBtn.style.display = 'block';
+    if (organizeBtn) {
+      organizeBtn.style.display = 'block';
+      // 已有数据时，按钮文字改为"查看家族地图"
+      if (savedState.familyId) {
+        organizeBtn.textContent = '查看家族地图 →';
+      }
     }
   }
 }
@@ -452,52 +422,15 @@ function userFinish() {
   const organizeBtn = document.getElementById('organize-btn');
   if (organizeBtn) {
     organizeBtn.style.display = 'block';
-  }
-
-  // 如果已有数据，显示"重新分析"按钮
-  const reanalyzeBtn = document.getElementById('reanalyze-btn');
-  if (reanalyzeBtn && state.familyId) {
-    reanalyzeBtn.style.display = 'block';
+    // 已有数据时，按钮文字改为"查看家族地图"
+    if (state.familyId) {
+      organizeBtn.textContent = '查看家族地图 →';
+    }
   }
 
   // 添加系统消息
-  const hasData = state.familyId ? '已有家族数据，可直接查看或重新分析。' : '好的，请点击下方"整理家族故事"按钮生成地图';
+  const hasData = state.familyId ? '已有家族数据，点击下方按钮直接查看。' : '好的，请点击下方"整理家族故事"按钮生成地图';
   addMessage(`<em style="color:var(--mist2);font-size:13px;">${hasData}</em>`, 'ai');
-}
-
-// 重新分析数据
-function reanalyzeData() {
-  if (!confirm('确定要重新分析家族数据吗？\n\n这将重新调用 AI 分析聊天记录，可能需要等待 2-5 分钟。')) {
-    return;
-  }
-
-  // 显示等待状态
-  showReanalyzing();
-
-  // 清除旧的 sessionStorage 数据
-  sessionStorage.removeItem('pending_chat_data');
-
-  // 调用 extract API（使用已有 familyId 更新）
-  callExtractAPI();
-}
-
-// 显示重新分析中状态
-function showReanalyzing() {
-  const overlay = document.createElement('div');
-  overlay.className = 'reanalyzing-overlay';
-  overlay.id = 'reanalyzing-overlay';
-  overlay.innerHTML = `
-    <div class="reanalyzing-spinner"></div>
-    <div class="reanalyzing-text">正在重新分析家族数据...</div>
-    <div class="reanalyzing-subtext">AI 正在整理聊天记录，生成结构化数据</div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-// 隐藏重新分析中状态
-function hideReanalyzing() {
-  const overlay = document.getElementById('reanalyzing-overlay');
-  if (overlay) overlay.remove();
 }
 
 // 添加消息到聊天
@@ -654,13 +587,6 @@ function goToStoryTimeline() {
     return;
   }
 
-  // 显示加载提示
-  const btn = document.getElementById('organize-btn');
-  if (btn) {
-    btn.innerHTML = state.familyId ? '正在加载家族数据...' : '正在解析家族数据...';
-    btn.disabled = true;
-  }
-
   // 已有 familyId 时，直接使用缓存数据（跳过分析）
   if (state.familyId) {
     loadExistingData(state.familyId);
@@ -668,6 +594,12 @@ function goToStoryTimeline() {
   }
 
   // 首次分析，调用 extract API
+  // 显示加载提示
+  const btn = document.getElementById('organize-btn');
+  if (btn) {
+    btn.innerHTML = '正在解析家族数据...';
+    btn.disabled = true;
+  }
   callExtractAPI();
 }
 
@@ -763,18 +695,11 @@ async function callExtractAPI() {
     // 跳转到 story-timeline 页面
     const redirectUrl = `/story-timeline.html?familyId=${extractData.familyId}`;
     console.log('[mobile-chat] 跳转到:', redirectUrl);
-
-    // 隐藏等待状态（页面跳转前）
-    hideReanalyzing();
-
     window.location.href = redirectUrl;
 
   } catch (e) {
     console.error('[mobile-chat] 解析失败:', e);
     console.error('[mobile-chat] 错误堆栈:', e.stack);
-
-    // 隐藏等待状态
-    hideReanalyzing();
 
     // 即使失败也跳转到 story-timeline，但显示错误信息
     const errorMsg = e.message || '解析失败，请重试';

@@ -19,19 +19,21 @@ type: project
    - 时间线叙事卡片功能（地图底部中央显示）
    - 深色主题地图样式（xungen_v3 风格）
    - 移动端自动跳转到 mobile-chat.html
-5. mobile.html - 手机端地图展示页面
+5. mobile.html - 手机端地图展示页面（2026-04-07 新增）
    - 全屏地图显示，去除聊天面板
    - iPhone 适配（刘海屏/底部横条安全区域）
    - 支持触摸缩放、拖动查看
    - 自动循环播放迁徙动画
    - 深色主题，节省电量
+   - 动态加载真实用户数据（从 API 或 sessionStorage）
+   - 迁徙事件卡片同步显示
 6. mobile-chat.html - 手机端聊天界面
    - 类微信聊天界面，符合用户习惯
    - 引导式问题卡片，降低用户输入门槛
    - 深色主题，与 mobile.html 风格一致
    - 支持 SSE 流式响应显示
-   - localStorage 持久化聊天记录
-7. story-timeline.html - 家族故事时间线页面（2026-04-07 新增）
+   - localStorage 持久化：聊天记录自动保存，页面跳转/刷新后恢复
+7. story-timeline.html - 家族故事时间线页面
    - 日历风格展示家族迁徙事件
    - 完整事件 vs 信息待补充事件区分显示
    - 仅完整事件（时间 + 人物 + 地点齐全）才作为地图数据
@@ -42,11 +44,26 @@ type: project
 无
 
 **最近完成**（2026-04-07）：
-1. mobile.html 移动端地图页面
+
+1. **mobile.html 动态数据加载**（最新）
+   - 从 URL 参数或 sessionStorage 获取 familyId
+   - 调用 API 加载用户专属迁徙数据
+   - 渲染带坐标的路径和标记点
+   - 动画序列正确播放（起点→事件卡片→路径绘制→终点）
+   - 循环播放机制
+
+2. **mobile-chat.html 快捷操作栏**
+   - 输入框上方新增快捷操作栏，包含"我说完了"和"整理家族故事"两个按钮
+   - 用户主动点击"我说完了"结束对话，不再依赖 AI 判断 isComplete
+   - 点击"整理家族故事"调用 extract API 创建 familyId 并跳转 story-timeline
+   - 删除旧的 generate-map-bar 和 showMapPreview 函数
+   - 简化逻辑：用户控制结束时机，familyId 在 extract API 时创建
+
+3. **mobile.html 移动端地图页面优化**
    - 删除右上角图例（线段颜色已在地点标记体现）
    - 简化底部操作栏
 
-2. mobile-chat.html 移动端聊天页面
+4. **mobile-chat.html 移动端聊天页面**
    - 顶部导航栏 + 消息列表 + 引导卡片 + 输入区域
    - 引导式问题卡片可点击使用
    - 输入框支持多行输入和回车发送
@@ -54,12 +71,12 @@ type: project
    - localStorage 持久化：聊天记录自动保存，页面跳转/刷新后恢复
    - 重新开始：顶部导航栏提供"重新开始"按钮，清除记录从头开始
 
-3. index.html 移动端检测跳转
+5. **index.html 移动端检测跳转**
    - User-Agent 检测移动设备
    - 屏幕宽度检测（≤768px）
    - 自动跳转到 mobile-chat.html
 
-4. story-timeline.html 家族故事时间线
+6. **story-timeline.html 家族故事时间线**
    - 日历风格展示家族迁徙事件
    - 完整事件绿色标记，信息缺失事件灰色标记
    - 缺失信息提示用户返回聊天补充
@@ -71,5 +88,16 @@ type: project
 - 后端：Node.js/Express + SSE 流式响应
 - AI: DashScope/Qwen 模型（通义千问）
 - 部署：Nginx 反向代理（注入 jscode 安全密钥）
+
+**移动端完整流程**：
+```
+index.html (检测移动设备)
+    ↓
+mobile-chat.html (聊天收集家族故事)
+    ↓ 点击"我说完了" → "整理家族故事"
+story-timeline.html (确认/编辑迁徙数据)
+    ↓ 点击"生成迁徙地图"
+mobile.html (地图动画展示)
+```
 
 **日期**：2026-04-07

@@ -3,7 +3,16 @@
     "allow": [
       "Bash(curl -s http://localhost:3005/)",
       "Bash(perl:*)",
-      "Bash(curl -s http://localhost:3005/xungen_v3.html)"
+      "Bash(curl -s http://localhost:3005/xungen_v3.html)",
+      "Bash(python3:*)",
+      "Bash(xargs kill:*)",
+      "Bash(node server.js)",
+      "Bash(echo \"Backend started with PID $!\")",
+      "Bash(PGPASSWORD=afei123 psql:*)",
+      "Bash(curl -s \"http://localhost:3005/amapapi/migration-map/c3060856-ce45-4d1a-ac43-48f60cb24826\")",
+      "Bash(open:*)",
+      "Bash(curl -s \"http://localhost:3005/story-timeline.html\")",
+      "Bash(git add:*)"
     ]
   }
 }

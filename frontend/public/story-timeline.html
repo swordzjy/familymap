@@ -42,7 +42,7 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .content{
   position:absolute;top:0;left:0;right:0;bottom:0;
   padding-top:calc(50px + env(safe-area-inset-top));
-  padding-bottom:calc(80px + env(safe-area-inset-bottom));
+  padding-bottom:calc(120px + env(safe-area-inset-bottom));
   overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
 .content::-webkit-scrollbar{display:none;}
@@ -50,24 +50,39 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 /* 家族信息卡片 */
 .family-card{
   margin:16px;
-  background:var(--ink1);
+  background:linear-gradient(135deg, var(--ink1) 0%, var(--ink0) 100%);
   border:1px solid var(--mist4);
-  border-radius:12px;
-  padding:16px;
+  border-radius:16px;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+}
+.family-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg, var(--mist3), var(--gold), var(--mist3));
 }
 .family-name{
-  font-family:var(--serif);font-size:20px;font-weight:400;
-  color:var(--cream);margin-bottom:4px;
+  font-family:var(--serif);font-size:22px;font-weight:400;
+  color:var(--cream);margin-bottom:6px;
+  letter-spacing:0.05em;
 }
 .family-meta{
+  display:flex;gap:12px;flex-wrap:wrap;
   font-size:12px;color:var(--mist2);
   font-family:var(--mono);
+}
+.family-meta span{
+  display:flex;align-items:center;gap:4px;
+}
+.family-meta span::before{
+  content:'';width:4px;height:4px;border-radius:50%;
+  background:var(--gold);
 }
 
 /* 时间线 */
 .timeline{
   position:relative;
-  padding:20px 0 10px 60px;
+  padding:20px 0 10px 70px;
 }
 /* 时间轴线 */
 .timeline::before{
@@ -79,14 +94,14 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 /* 时间线事件 */
 .timeline-item{
   position:relative;
-  margin-bottom:20px;
+  margin-bottom:24px;
   animation:slideIn 0.4s ease;
 }
 @keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
 
 /* 时间点 */
 .timeline-dot{
-  position:absolute;left:-44px;top:0;
+  position:absolute;left:-54px;top:0;
   width:16px;height:16px;border-radius:50%;
   background:var(--ink0);
   border:2px solid var(--gold);
@@ -102,52 +117,77 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   background:var(--ink1);
   border:1px solid var(--mist4);
   border-radius:12px;
-  padding:14px;
+  padding:16px;
 }
 .event-card.complete{
-  border-left:3px solid var(--gold);
+  border-left:4px solid var(--gold);
 }
 .event-card.incomplete{
-  border-left:3px solid var(--mist3);
+  border-left:4px solid var(--mist3);
   background:var(--ink0);
 }
 
 /* 年份标签 */
 .event-year{
-  display:inline-block;
+  display:inline-flex;align-items:center;gap:6px;
   font-family:var(--mono);
-  font-size:11px;
+  font-size:12px;
+  font-weight:500;
   color:var(--gold);
   background:rgba(200,169,110,0.1);
-  padding:3px 8px;
-  border-radius:10px;
-  margin-bottom:8px;
+  padding:4px 10px;
+  border-radius:12px;
+  margin-bottom:10px;
   letter-spacing:0.05em;
+}
+.event-year::before{
+  content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);
 }
 .event-card.incomplete .event-year{
   color:var(--mist2);
   background:var(--mist3);
 }
+.event-card.incomplete .event-year::before{background:var(--mist2);}
+
+/* 编辑图标 */
+.edit-icon {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  opacity: 0.4;
+  margin-left: 6px;
+  transition: opacity 0.2s;
+}
+.edit-icon:hover {
+  opacity: 0.8;
+}
+.edit-icon svg {
+  stroke: var(--mist);
+}
 
 /* 人物 */
 .event-person{
   font-family:var(--serif);
-  font-size:15px;
+  font-size:16px;
   font-weight:400;
   color:var(--cream);
-  margin-bottom:6px;
+  margin-bottom:8px;
 }
 
-/* 地点 */
+/* 地点路线 */
 .event-route{
   display:flex;align-items:center;gap:8px;
-  font-size:12px;
+  font-size:13px;
   color:var(--mist);
-  margin-bottom:6px;
+  margin-bottom:8px;
+  padding:8px 10px;
+  background:var(--ink0);
+  border-radius:8px;
 }
 .event-route-arrow{
   color:var(--gold);
   font-weight:bold;
+  font-family:var(--mono);
 }
 .event-card.incomplete .event-route{
   color:var(--mist2);
@@ -157,19 +197,94 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .event-desc{
   font-size:13px;
   color:var(--mist);
-  line-height:1.6;
+  line-height:1.7;
+  padding-top:8px;
+  border-top:1px solid var(--mist4);
+  margin-top:8px;
 }
 
 /* 缺失信息提示 */
 .missing-info{
-  margin-top:8px;
-  padding:8px 10px;
+  margin-top:10px;
+  padding:10px 12px;
   background:rgba(224,114,88,0.1);
   border:1px solid rgba(224,114,88,0.3);
   border-radius:8px;
   font-size:11px;
   color:var(--coral);
   line-height:1.5;
+}
+
+/* 编辑表单 */
+.edit-form{
+  margin-top:12px;
+  padding:12px;
+  background:var(--ink0);
+  border:1px solid var(--mist4);
+  border-radius:8px;
+}
+.edit-form-row{
+  display:flex;flex-direction:column;gap:4px;
+  margin-bottom:10px;
+}
+.edit-form-row:last-child{margin-bottom:0;}
+.edit-form-label{
+  font-size:11px;color:var(--mist2);font-family:var(--mono);
+}
+.edit-form-input{
+  width:100%;
+  padding:8px 10px;
+  background:var(--ink1);
+  border:1px solid var(--mist4);
+  border-radius:6px;
+  color:var(--cream);
+  font-size:13px;
+  font-family:var(--sans);
+  outline:none;
+  transition:border-color 0.2s;
+}
+.edit-form-input:focus{border-color:var(--gold);}
+.edit-form-actions{
+  display:flex;gap:8px;margin-top:10px;
+}
+.edit-form-btn{
+  flex:1;
+  padding:8px 12px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  border:none;
+}
+.edit-form-btn.save{
+  background:var(--gold);
+  color:var(--night);
+}
+.edit-form-btn.cancel{
+  background:transparent;
+  border:1px solid var(--mist4);
+  color:var(--mist);
+}
+
+/* 原始聊天内容 */
+.raw-chat-content{
+  margin-top:10px;
+  padding:10px 12px;
+  background:var(--ink0);
+  border:1px solid var(--mist4);
+  border-radius:8px;
+  font-size:12px;
+  color:var(--mist);
+  line-height:1.6;
+  max-height:150px;
+  overflow-y:auto;
+}
+.raw-chat-content::-webkit-scrollbar{display:none;}
+.raw-chat-content-title{
+  font-size:11px;
+  color:var(--gold);
+  font-family:var(--mono);
+  margin-bottom:6px;
 }
 
 /* 底部操作栏 */
@@ -208,6 +323,7 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
   min-height:200px;
+  padding:40px 20px;
 }
 .loading-dot{
   width:8px;height:8px;border-radius:50%;
@@ -216,8 +332,16 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 }
 @keyframes ldot{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
 .loading-text{
+  font-size:14px;color:var(--cream);
+  margin-top:16px;margin-bottom:8px;
+  font-family:var(--serif);
+  font-weight:400;
+}
+.loading-progress{
   font-size:12px;color:var(--mist2);
-  margin-top:12px;letter-spacing:0.08em;
+  font-family:var(--mono);
+  min-height:18px;
+  transition:opacity 0.3s;
 }
 
 /* 图例 */
@@ -259,7 +383,8 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 <div class="content" id="content">
   <div class="loading" id="loading">
     <div class="loading-dot"></div>
-    <div class="loading-text">正在整理家族故事</div>
+    <div class="loading-text" id="loading-text">正在整理家族故事</div>
+    <div class="loading-progress" id="loading-progress" style="margin-top:12px;font-size:12px;color:var(--mist2);font-family:var(--mono);"></div>
   </div>
 </div>
 
@@ -271,42 +396,134 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
 <script>
 const API_BASE = '/amapapi';
-const familyId = getFamilyIdFromStorage();
 
-// 从 localStorage 获取 familyId
-function getFamilyIdFromStorage() {
+// 从多个来源获取 familyId
+function getFamilyId() {
+  // 1. 检查 URL 参数
+  const params = new URLSearchParams(window.location.search);
+  const urlFamilyId = params.get('familyId');
+  console.log('[story-timeline] URL familyId:', urlFamilyId);
+
+  if (urlFamilyId) return urlFamilyId;
+
+  // 2. 检查 localStorage
   try {
     const saved = localStorage.getItem('family_migration_chat_state');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return parsed.familyId;
+      console.log('[story-timeline] localStorage familyId:', parsed?.familyId);
+      if (parsed.familyId) return parsed.familyId;
     }
-  } catch (e) {}
-  // 也检查 URL 参数
-  const params = new URLSearchParams(window.location.search);
-  return params.get('familyId');
+  } catch (e) {
+    console.warn('[story-timeline] localStorage 读取失败:', e);
+  }
+
+  // 3. 检查 sessionStorage（从聊天页面跳过来时可能保存了临时数据）
+  try {
+    const tempData = sessionStorage.getItem('pending_chat_data');
+    console.log('[story-timeline] sessionStorage pending_chat_data:', tempData ? JSON.parse(tempData) : 'null');
+    if (tempData) {
+      const parsed = JSON.parse(tempData);
+      if (parsed.familyId) return parsed.familyId;
+    }
+  } catch (e) {
+    console.warn('[story-timeline] sessionStorage 读取失败:', e);
+  }
+
+  console.log('[story-timeline] 未找到 familyId');
+  return null;
 }
+
+const familyId = getFamilyId();
+console.log('[story-timeline] 最终 familyId:', familyId);
+
+// 调试：输出 sessionStorage 内容
+console.log('[story-timeline] sessionStorage 所有 keys:', Object.keys(sessionStorage));
+console.log('[story-timeline] sessionStorage pending_chat_data:', sessionStorage.getItem('pending_chat_data'));
 
 // 加载数据
 async function loadTimeline() {
+  console.log('[story-timeline] loadTimeline 开始，familyId:', familyId);
+
   if (!familyId) {
+    // 检查是否有错误信息
+    let errorMsg = null;
+    try {
+      const errorData = sessionStorage.getItem('story_timeline_error');
+      if (errorData) {
+        errorMsg = JSON.parse(errorData);
+        // 清除错误信息（只显示一次）
+        sessionStorage.removeItem('story_timeline_error');
+      }
+    } catch (e) {}
+
+    // 没有 familyId，提示用户去聊天
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:20px;">
-        <div style="font-size:14px;color:var(--mist2);margin-bottom:12px;">没有找到家族信息</div>
-        <a href="/mobile-chat.html" class="btn btn-primary" style="display:inline-block;padding:10px 20px;">开始聊天</a>
+        <div style="font-size:16px;color:var(--cream);margin-bottom:8px;font-family:var(--serif);">暂无家族故事数据</div>
+        <div style="font-size:13px;color:var(--mist2);margin-bottom:16px;">
+          ${errorMsg ? `<span style="color:var(--coral);">${errorMsg}</span>` : '请先在聊天中分享你的家族故事'}
+        </div>
+        <a href="/mobile-chat.html" class="btn btn-primary" style="display:inline-block;padding:10px 20px;">返回聊天</a>
       </div>
     `;
     return;
   }
 
+  // 检查是否有 sessionStorage 中的临时数据（刚解析完）
+  try {
+    const tempData = sessionStorage.getItem('pending_chat_data');
+    if (tempData) {
+      const parsed = JSON.parse(tempData);
+      if (parsed.familyId === familyId && parsed.data) {
+        // 有临时数据，直接渲染
+        renderTimeline(parsed.data);
+        // 清除临时数据
+        sessionStorage.removeItem('pending_chat_data');
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('读取临时数据失败:', e);
+  }
+
+  // 没有临时数据，从 API 加载
+  const progressEl = document.getElementById('loading-progress');
+  const loadingEl = document.getElementById('loading');
+
+  if (!progressEl || !loadingEl) {
+    console.error('[story-timeline] loading 元素不存在');
+    return;
+  }
+
+  const steps = [
+    '连接数据库...',
+    '读取家族信息...',
+    '读取人物列表...',
+    '读取迁徙记录...',
+    '匹配历史事件...',
+    '整理完成!',
+  ];
+
+  let step = 0;
+  const progressInterval = setInterval(() => {
+    if (step < steps.length) {
+      progressEl.textContent = steps[step];
+      step++;
+    }
+  }, 400);
+
   try {
     const response = await fetch(`${API_BASE}/migration-map/${familyId}`);
     const data = await response.json();
 
+    clearInterval(progressInterval);
+    progressEl.textContent = '';
     renderTimeline(data);
   } catch (e) {
     console.error('加载失败:', e);
-    document.getElementById('loading').innerHTML = `
+    clearInterval(progressInterval);
+    loadingEl.innerHTML = `
       <div style="text-align:center;padding:20px;">
         <div style="font-size:14px;color:var(--mist2);margin-bottom:12px;">加载失败，请重试</div>
         <button onclick="location.reload()" class="btn btn-primary" style="display:inline-block;padding:10px 20px;">重试</button>
@@ -315,15 +532,52 @@ async function loadTimeline() {
   }
 }
 
+// 页面加载时加载数据
+loadTimeline();
+
 // 渲染时间线
 function renderTimeline(data) {
+  console.log('[story-timeline] renderTimeline 接收到的数据:', data);
+
   const content = document.getElementById('content');
   document.getElementById('loading').style.display = 'none';
 
-  // 家族信息
-  const familyName = data.familyName || '您的家族';
+  // 家族信息 - 注意：extract API 返回的是 migrations，不是 paths
+  const familyName = data.family_name || data.familyName || '您的家族';
   const personCount = data.persons?.length || 0;
-  const migrationCount = data.paths?.length || 0;
+  const migrationCount = (data.migrations || data.paths)?.length || 0;
+
+  // 读取原始聊天内容
+  let rawChatText = '';
+  try {
+    const tempData = sessionStorage.getItem('pending_chat_data');
+    if (tempData) {
+      const parsed = JSON.parse(tempData);
+      rawChatText = parsed.rawChatText || '';
+    }
+  } catch (e) {
+    console.warn('读取原始聊天内容失败:', e);
+  }
+
+  // 计算完整和待补充的事件数量
+  const personMap = {};
+  (data.persons || []).forEach(p => {
+    personMap[p.internal_id || p.id] = p;
+  });
+
+  // 统一使用 migrations 或 paths
+  const migrations = data.migrations || data.paths || [];
+
+  let completeCount = 0;
+  let incompleteCount = 0;
+  migrations.forEach(path => {
+    const person = personMap[path.person_internal_id] || personMap[path.person_id];
+    if (isPathComplete(path, person)) {
+      completeCount++;
+    } else {
+      incompleteCount++;
+    }
+  });
 
   document.getElementById('nav-subtitle').textContent = `${personCount} 位家人 · ${migrationCount} 段迁徙`;
 
@@ -331,7 +585,12 @@ function renderTimeline(data) {
   let html = `
     <div class="family-card">
       <div class="family-name">${familyName}</div>
-      <div class="family-meta">${personCount} 位家人 · ${migrationCount} 段迁徙</div>
+      <div class="family-meta">
+        <span>${personCount} 位家人</span>
+        <span>${migrationCount} 段迁徙</span>
+        <span style="color:var(--gold);">${completeCount} 段完整</span>
+        ${incompleteCount > 0 ? `<span style="color:var(--coral);">${incompleteCount} 段待补充</span>` : ''}
+      </div>
     </div>
     <div class="timeline" id="timeline"></div>
   `;
@@ -340,29 +599,112 @@ function renderTimeline(data) {
 
   const timeline = document.getElementById('timeline');
 
-  // 按时间排序迁徙事件
-  const sortedPaths = [...(data.paths || [])].sort((a, b) =>
+  // 按时间排序迁徙事件 - 使用 migrations 或 paths
+  const sortedPaths = [...migrations].sort((a, b) =>
     (a.sequence_order || 0) - (b.sequence_order || 0)
   );
 
-  // 构建人物映射
-  const personMap = {};
-  (data.persons || []).forEach(p => {
-    personMap[p.internal_id || p.id] = p;
-  });
+  // 迁徙原因类型映射
+  const reasonTypeMap = {
+    study: '求学',
+    work: '工作',
+    family: '家庭',
+    assignment: '分配',
+    war: '战乱',
+    disaster: '灾荒',
+    unknown: '其他',
+  };
 
   // 渲染每个事件
   sortedPaths.forEach((path, idx) => {
     const person = personMap[path.person_internal_id] || personMap[path.person_id];
     const isComplete = isPathComplete(path, person);
+    const reasonType = reasonTypeMap[path.reason_type] || path.reason_type || '';
+    const personName = person?.name && person.name !== '未知' ? person.name : '';
+    const personRole = person?.role || '';
+    const pathInternalId = path.internal_id || `path_${idx}`;
 
     const item = document.createElement('div');
     item.className = `timeline-item ${isComplete ? '' : 'incomplete'}`;
+
+    // 编辑表单 HTML（所有事件都可以编辑）
+    const editFormHtml = `
+      <div class="edit-form" id="edit-form-${pathInternalId}" style="display:none;">
+        <div style="font-size:12px;color:var(--gold);margin-bottom:10px;font-family:var(--mono);">编辑信息</div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">人物称呼</label>
+          <input class="edit-form-input" id="edit-role-${pathInternalId}" value="${personRole || ''}" placeholder="例如：父亲" />
+        </div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">人物姓名</label>
+          <input class="edit-form-input" id="edit-name-${pathInternalId}" value="${personName || ''}" placeholder="例如：王志强" />
+        </div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">年份</label>
+          <input class="edit-form-input" id="edit-year-${pathInternalId}" value="${path.year || ''}" placeholder="例如：1965" />
+        </div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">出发地</label>
+          <input class="edit-form-input" id="edit-from-${pathInternalId}" value="${path.from_place || ''}" placeholder="例如：黑龙江省双城县" />
+        </div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">目的地</label>
+          <input class="edit-form-input" id="edit-to-${pathInternalId}" value="${path.to_place || ''}" placeholder="例如：北京市" />
+        </div>
+        <div class="edit-form-row">
+          <label class="edit-form-label">原因描述</label>
+          <input class="edit-form-input" id="edit-reason-${pathInternalId}" value="${path.reason || ''}" placeholder="例如：考入清华大学求学" />
+        </div>
+        <div class="edit-form-actions">
+          <button class="edit-form-btn save" onclick="savePathEdit('${pathInternalId}', '${path.person_internal_id || path.person_id}')">保存</button>
+          <button class="edit-form-btn cancel" onclick="cancelPathEdit('${pathInternalId}')">取消</button>
+        </div>
+      </div>
+    `;
+
+    // 不完整事件显示缺失信息和原始聊天内容
+    let incompleteHtml = '';
+    if (!isComplete) {
+      let relatedChatText = '';
+      if (rawChatText) {
+        const lines = rawChatText.split('\n');
+        const keywords = [path.from_place, path.to_place, path.year, path.reason].filter(Boolean);
+        if (keywords.length > 0) {
+          const relatedLines = lines.filter(line => keywords.some(kw => line.includes(kw)));
+          relatedChatText = relatedLines.slice(0, 5).join('\n');
+        }
+      }
+
+      const relatedChatHtml = relatedChatText ? `
+        <div class="raw-chat-content-title">相关聊天内容</div>
+        <div class="raw-chat-content">${relatedChatText.replace(/\n/g, '<br>')}</div>
+      ` : '';
+
+      incompleteHtml = `
+        <div class="missing-info" style="cursor:pointer;" onclick="toggleEditForm('${pathInternalId}')">
+          ${getMissingInfo(path, person)}
+        </div>
+        ${relatedChatHtml}
+      `;
+    }
+
+    // 人物名称后显示编辑图标
+    const editIconHtml = `
+      <span class="edit-icon" onclick="toggleEditForm('${pathInternalId}')" title="编辑">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </span>
+    `;
+
     item.innerHTML = `
       <div class="timeline-dot"></div>
       <div class="event-card ${isComplete ? 'complete' : 'incomplete'}">
-        <div class="event-year">${path.year || '时间未知'}</div>
-        <div class="event-person">${person?.role || ''}${person?.name && person.name !== '未知' ? ' ' + person.name : ''}</div>
+        <div class="event-year">${path.year || '时间未知'}${reasonType ? `<span style="opacity:0.6;margin-left:8px;">· ${reasonType}</span>` : ''}</div>
+        <div class="event-person">
+          ${personRole || '未知'}${personName && personName !== '未知' ? ' · ' + personName : ''}${person?.generation ? `<span style="font-size:12px;opacity:0.6;margin-left:6px;">第${person.generation}代</span>` : ''}${editIconHtml}
+        </div>
         ${path.from_place && path.to_place ? `
           <div class="event-route">
             <span>${path.from_place}</span>
@@ -371,11 +713,8 @@ function renderTimeline(data) {
           </div>
         ` : ''}
         <div class="event-desc">${path.reason || path.event_desc || '事件详情待补充'}</div>
-        ${!isComplete ? `
-          <div class="missing-info">
-            ${getMissingInfo(path, person)}
-          </div>
-        ` : ''}
+        ${incompleteHtml}
+        ${editFormHtml}
       </div>
     `;
     timeline.appendChild(item);
@@ -390,9 +729,12 @@ function renderTimeline(data) {
 
 // 检查事件是否完整（时间、人物、地点齐全）
 function isPathComplete(path, person) {
+  // 有经纬度或地名都算完整
+  const hasFrom = path.from_lng || path.from_place;
+  const hasTo = path.to_lng || path.to_place;
   return path.year &&
-         path.from_lng && path.from_lat &&
-         path.to_lng && path.to_lat &&
+         hasFrom &&
+         hasTo &&
          (person?.role || person?.name);
 }
 
@@ -400,8 +742,8 @@ function isPathComplete(path, person) {
 function getMissingInfo(path, person) {
   const missing = [];
   if (!path.year) missing.push('时间');
-  if (!path.from_lng || !path.from_lat) missing.push('出发地');
-  if (!path.to_lng || !path.to_lat) missing.push('目的地');
+  if (!path.from_lng && !path.from_place) missing.push('出发地');
+  if (!path.to_lng && !path.to_place) missing.push('目的地');
   if (!person?.role && (!person?.name || person.name === '未知')) missing.push('人物');
 
   if (missing.length > 0) {
@@ -410,13 +752,157 @@ function getMissingInfo(path, person) {
   return '信息待补充';
 }
 
+// 切换编辑表单显示/隐藏
+function toggleEditForm(pathId) {
+  const form = document.getElementById(`edit-form-${pathId}`);
+  if (form) {
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+// 保存编辑
+function savePathEdit(pathId, personId) {
+  const year = document.getElementById(`edit-year-${pathId}`).value.trim();
+  const fromPlace = document.getElementById(`edit-from-${pathId}`).value.trim();
+  const toPlace = document.getElementById(`edit-to-${pathId}`).value.trim();
+  const reason = document.getElementById(`edit-reason-${pathId}`).value.trim();
+  const role = document.getElementById(`edit-role-${pathId}`).value.trim();
+  const name = document.getElementById(`edit-name-${pathId}`).value.trim();
+
+  console.log('[story-timeline] 保存编辑:', { pathId, year, fromPlace, toPlace, reason, role, name });
+
+  // 获取当前数据
+  const tempData = sessionStorage.getItem('pending_chat_data');
+  if (!tempData) {
+    alert('未找到数据，请重新加载页面');
+    return;
+  }
+
+  const parsed = JSON.parse(tempData);
+  const migrations = parsed.data.migrations || parsed.data.paths || [];
+  const persons = parsed.data.persons || [];
+
+  // 找到对应的迁徙记录
+  const pathIndex = migrations.findIndex(p => (p.internal_id || `path_${migrations.indexOf(p)}`) === pathId);
+  if (pathIndex === -1) {
+    alert('未找到对应的迁徙记录');
+    return;
+  }
+
+  // 更新迁徙数据
+  const path = migrations[pathIndex];
+  if (year) path.year = parseInt(year) || year;
+  if (fromPlace) path.from_place = fromPlace;
+  if (toPlace) path.to_place = toPlace;
+  if (reason) path.reason = reason;
+
+  // 更新人物数据
+  const personIndex = persons.findIndex(p => p.id === personId);
+  if (personIndex !== -1) {
+    const person = persons[personIndex];
+    if (role) person.role = role;
+    if (name) person.name = name;
+  }
+
+  // 更新 sessionStorage
+  sessionStorage.setItem('pending_chat_data', JSON.stringify(parsed));
+
+  // 重新渲染
+  alert('保存成功！');
+  renderTimeline(parsed.data);
+}
+
+// 取消编辑
+function cancelPathEdit(pathId) {
+  const form = document.getElementById(`edit-form-${pathId}`);
+  if (form) {
+    form.style.display = 'none';
+  }
+}
+
+// 切换编辑表单显示
+function toggleEditForm(pathId) {
+  const form = document.getElementById(`edit-form-${pathId}`);
+  if (form) {
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
 // 生成地图
 function generateMap() {
   window.location.href = `/mobile.html?familyId=${familyId}`;
 }
 
-// 页面加载
-loadTimeline();
+// ============================================================
+// 移动端滚动声音反馈（类似日历 App）
+// ============================================================
+(function() {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (!isMobile) return;
+
+  let audioCtx = null;
+  let lastScrollTop = 0;
+  let lastScrollTime = 0;
+  let scrollVelocity = 0;
+  let soundEnabled = true;
+
+  // 初始化音频上下文（需要用户交互后才能播放声音）
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+
+  // 播放"哒"声
+  function playScrollSound() {
+    if (!audioCtx || !soundEnabled) return;
+
+    const now = audioCtx.currentTime;
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    // 短促的"哒"声（类似木琴声）
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.03, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.05);
+  }
+
+  // 监听滚动
+  const contentEl = document.querySelector('.content');
+  if (!contentEl) return;
+
+  // 首次触摸时初始化音频
+  contentEl.addEventListener('touchstart', function() {
+    initAudio();
+  }, { passive: true });
+
+  contentEl.addEventListener('scroll', function() {
+    const now = Date.now();
+    const scrollTop = contentEl.scrollTop;
+    const timeDiff = now - lastScrollTime;
+
+    // 计算滚动速度
+    if (timeDiff > 0) {
+      scrollVelocity = Math.abs(scrollTop - lastScrollTop) / timeDiff;
+    }
+
+    // 快速滚动时播放声音（速度阈值）
+    if (scrollVelocity > 2 && timeDiff > 50) {
+      playScrollSound();
+      lastScrollTime = now;
+    }
+
+    lastScrollTop = scrollTop;
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>

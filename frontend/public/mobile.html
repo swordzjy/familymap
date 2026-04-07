@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>家族迁徙地图</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-
 <script src="https://webapi.amap.com/loader.js"></script>
 
 <style>
@@ -140,6 +139,20 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   font-size:12px;color:var(--mist2);
   margin-top:12px;letter-spacing:0.08em;
 }
+.map-loading-error{
+  font-size:12px;color:var(--coral);
+  margin-top:12px;text-align:center;padding:0 40px;
+}
+.map-loading-retry{
+  margin-top:16px;
+  padding:8px 20px;
+  background:rgba(200,169,110,0.15);
+  border:1px solid var(--gold);
+  border-radius:8px;
+  color:var(--gold);
+  font-size:12px;
+  cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -160,7 +173,8 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
 <!-- 底部操作栏 -->
 <div class="bottom-bar">
-  <a href="/mobile-chat.html" class="action-btn">返回聊天页面 →</a>
+  <div class="legend" id="legend"></div>
+  <a href="#" class="action-btn" id="back-link">返回故事时间线 →</a>
 </div>
 
 <!-- 地图容器 -->
@@ -169,56 +183,33 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 <!-- 加载状态 -->
 <div class="map-loading" id="map-loading">
   <div class="map-loading-dot"></div>
-  <div class="map-loading-txt">正在加载地图</div>
+  <div class="map-loading-txt">正在加载家族数据</div>
 </div>
 
 <script>
-// ============================================================
-// DEMO 数据
-// ============================================================
-const DEMO_PATHS = [
-  {
-    id: 'demo-1', sequence_order: 1,
-    person_role: '父亲', person_name: '张志远', generation: 2,
-    from_place: '黑龙江省双城县', from_lng: 126.312, from_lat: 45.374,
-    to_place: '北京', to_lng: 116.407, to_lat: 39.904,
-    year: 1960, reason: '求学', reason_type: 'study', emotion_weight: 'high',
-    event_desc: '贫农的儿子考入清华大学，走出了家族的第一步',
-  },
-  {
-    id: 'demo-2', sequence_order: 2,
-    person_role: '父亲', person_name: '张志远', generation: 0,
-    from_place: '北京', from_lng: 116.407, from_lat: 39.904,
-    to_place: '辽宁省铁岭县', to_lng: 123.844, to_lat: 42.223,
-    year: 1970, reason: '大学毕业分配到铁岭', reason_type: 'work', emotion_weight: 'medium',
-    event_desc: '在铁岭工作生活至今',
-  },
-  {
-    id: 'demo-3', sequence_order: 3,
-    person_role: '母亲', person_name: '李秀英', generation: 2,
-    from_place: '哈尔滨', from_lng: 126.642, from_lat: 45.757,
-    to_place: '辽宁省铁岭县', to_lng: 123.844, to_lat: 42.223,
-    year: 1970, reason: '随军调迁', reason_type: 'family', emotion_weight: 'medium',
-    event_desc: '随丈夫工作调动，举家迁往铁岭',
-  },
-  {
-    id: 'demo-4', sequence_order: 4,
-    person_role: '本人', person_name: '你', generation: 0,
-    from_place: '辽宁省铁岭县', from_lng: 123.844, from_lat: 42.223,
-    to_place: '北京', to_lng: 116.407, to_lat: 39.904,
-    year: 1990, reason: '大学毕业来京工作', reason_type: 'work', emotion_weight: 'medium',
-    event_desc: '从铁岭来到北京，在这里工作生活至今',
-  }
-];
+const API_BASE = '/amapapi';
 
-// 迁徙颜色
+// 迁徙颜色映射
 const MIGRATION_COLORS = {
-  study:    '#a890e0',
-  work:     '#6aabdc',
-  family:   '#3ec9a0',
-  assignment:'#e07258',
-  war:      '#A32D2D',
+  study:    '#a890e0',  // 求学 - 紫色
+  work:     '#6aabdc',  // 工作 - 蓝色
+  family:   '#3ec9a0',  // 家庭 - 青色
+  assignment:'#e07258', // 分配 - 珊瑚色
+  war:      '#A32D2D',  // 战乱 - 红色
+  disaster: '#e07258',  // 灾荒 - 橙色
+  unknown:  '#c8a96e',  // 其他 - 金色
   default:  '#c8a96e',
+};
+
+// 迁徙原因中文映射
+const REASON_LABELS = {
+  study: '求学',
+  work: '工作',
+  family: '家庭',
+  assignment: '分配',
+  war: '战乱',
+  disaster: '灾荒',
+  unknown: '其他',
 };
 
 // 状态
@@ -227,73 +218,236 @@ const state = {
   markers: [],
   polylines: [],
   isAnimating: false,
+  familyId: null,
+  data: null,
 };
+
+// ============================================================
+// 从 URL 获取 familyId
+// ============================================================
+function getFamilyIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('familyId');
+}
+
+// 从 sessionStorage 获取数据
+function getDataFromSessionStorage() {
+  try {
+    const pendingData = sessionStorage.getItem('pending_map_data');
+    if (pendingData) {
+      return JSON.parse(pendingData);
+    }
+  } catch (e) {
+    console.warn('读取 sessionStorage 失败:', e);
+  }
+  return null;
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+async function init() {
+  const urlFamilyId = getFamilyIdFromURL();
+  console.log('[mobile] URL familyId:', urlFamilyId);
+
+  // 先尝试从 sessionStorage 获取数据
+  const sessionData = getDataFromSessionStorage();
+  if (sessionData && sessionData.familyId === urlFamilyId) {
+    console.log('[mobile] 使用 sessionStorage 数据');
+    state.data = sessionData;
+    state.familyId = sessionData.familyId;
+    await initMap();
+    renderUserPaths(sessionData);
+    return;
+  }
+
+  // 从 API 加载数据
+  if (urlFamilyId) {
+    state.familyId = urlFamilyId;
+    await loadFromAPI(urlFamilyId);
+  } else {
+    showError('缺少 familyId 参数');
+  }
+}
+
+// ============================================================
+// 从 API 加载数据
+// ============================================================
+async function loadFromAPI(familyId) {
+  const loadingEl = document.getElementById('map-loading');
+
+  try {
+    const response = await fetch(`${API_BASE}/migration-map/${familyId}`);
+    const data = await response.json();
+
+    if (!data.success && !data.paths) {
+      throw new Error(data.error || '数据加载失败');
+    }
+
+    state.data = data;
+    await initMap();
+    renderUserPaths(data);
+
+  } catch (e) {
+    console.error('[mobile] 数据加载失败:', e);
+    loadingEl.innerHTML = `
+      <div class="map-loading-txt">数据加载失败</div>
+      <div class="map-loading-error">${e.message}</div>
+      <button class="map-loading-retry" onclick="location.reload()">重试</button>
+    `;
+  }
+}
 
 // ============================================================
 // 初始化地图
 // ============================================================
-function initMap() {
-  AMapLoader.load({
-    key: 'b05662825818663084ef068e06bf9744',
-    version: '2.0',
-    plugins: ['AMap.Polyline', 'AMap.Marker', 'AMap.Scale'],
-    serviceHost: 'https://f.aifeisu.cn/_AMapService',
-  })
-  .then((AMap) => {
-    window.AMap = AMap;
+async function initMap() {
+  return new Promise((resolve, reject) => {
+    AMapLoader.load({
+      key: 'b05662825818663084ef068e06bf9744',
+      version: '2.0',
+      plugins: ['AMap.Polyline', 'AMap.Marker', 'AMap.Scale'],
+      serviceHost: 'https://f.aifeisu.cn/_AMapService',
+    })
+    .then((AMap) => {
+      window.AMap = AMap;
+      console.log('[mobile] AMap 加载成功');
 
-    state.amapInstance = new AMap.Map('amap-container', {
-      zoom: 5,
-      center: [113.0, 38.0],
-      mapStyle: 'amap://styles/dark',
-      doubleClickZoom: false,
-      scrollWheel: true,
-      touchZoom: true,
-      rotateEnable: false,
-      pitchEnable: false,
+      state.amapInstance = new AMap.Map('amap-container', {
+        zoom: 5,
+        center: [113.0, 38.0],
+        mapStyle: 'amap://styles/dark',
+        doubleClickZoom: false,
+        scrollWheel: true,
+        touchZoom: true,
+        rotateEnable: false,
+        pitchEnable: false,
+      });
+
+      state.amapInstance.addControl(new AMap.Scale());
+
+      state.amapInstance.on('complete', () => {
+        console.log('[mobile] 地图初始化完成');
+        resolve();
+      });
+    })
+    .catch((e) => {
+      console.error('[mobile] AMap 加载失败:', e);
+      reject(e);
     });
-
-    state.amapInstance.addControl(new AMap.Scale());
-    document.getElementById('map-loading').style.display = 'none';
-
-    renderDemoPaths(DEMO_PATHS);
-  })
-  .catch((e) => {
-    console.error('[AMap] 加载失败:', e);
-    document.getElementById('map-loading').innerHTML =
-      '<div style="font-size:12px;color:var(--mist2);padding:20px;text-align:center;">地图加载失败<br>请检查网络连接</div>';
   });
 }
 
 // ============================================================
-// 渲染 Demo 路径
+// 渲染用户路径
 // ============================================================
-function renderDemoPaths(paths) {
+function renderUserPaths(data) {
+  console.log('[mobile] renderUserPaths 数据:', data);
+
+  const loadingEl = document.getElementById('map-loading');
+  const legendEl = document.getElementById('legend');
+
+  // 隐藏加载状态
+  loadingEl.style.display = 'none';
+
+  // 处理数据 - 兼容两种格式
+  const paths = data.paths || data.migrations || [];
+  const persons = data.persons || [];
+
+  console.log('[mobile] paths 第一项:', paths[0]);
+
+  // 构建人物映射
+  const personMap = {};
+  persons.forEach(p => {
+    personMap[p.internal_id || p.id] = p;
+  });
+
+  // 过滤有效路径（有经纬度）- 兼容多种字段名
+  const validPaths = paths.filter(p => {
+    // 尝试不同的字段名
+    const fromLng = p.from_lng || p.fromLng || p.start_lng || p.startLng;
+    const fromLat = p.from_lat || p.fromLat || p.start_lat || p.startLat;
+    const toLng = p.to_lng || p.toLng || p.end_lng || p.endLng;
+    const toLat = p.to_lat || p.toLat || p.end_lat || p.endLat;
+
+    const hasCoords = fromLng && fromLat && toLng && toLat;
+    if (!hasCoords) {
+      console.log('[mobile] 路径缺少坐标:', p);
+    }
+    return hasCoords;
+  });
+
+  console.log('[mobile] validPaths 数量:', validPaths.length);
+
+  if (validPaths.length === 0) {
+    loadingEl.innerHTML = `
+      <div class="map-loading-txt">暂无可显示的迁徙数据</div>
+      <div class="map-loading-error">请确保聊天中包含地点信息</div>
+      <a href="/mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
+    `;
+    return;
+  }
+
+  // 排序
+  const sorted = [...validPaths].sort((a, b) =>
+    (a.sequence_order || 0) - (b.sequence_order || 0)
+  );
+
+  // 统计城市数量
+  const citySet = new Set();
+  sorted.forEach(p => {
+    citySet.add(p.from_place);
+    citySet.add(p.to_place);
+  });
+
+  // 更新标题
+  const familyName = data.familyName || data.family_name || '您的家族';
+  document.getElementById('map-title').textContent = `${familyName} · 家族迁徙地图`;
+  document.getElementById('map-subtitle').textContent =
+    `${sorted.length} 段迁徙 · ${citySet.size} 座城市`;
+
+  // 构建图例
+  const reasonTypes = new Set(sorted.map(p => p.reason_type || 'unknown'));
+  let legendHtml = '';
+  reasonTypes.forEach(type => {
+    const color = MIGRATION_COLORS[type] || MIGRATION_COLORS.default;
+    const label = REASON_LABELS[type] || type;
+    legendHtml += `
+      <div class="legend-item">
+        <div class="legend-dot" style="background:${color}"></div>
+        <span>${label}</span>
+      </div>
+    `;
+  });
+  legendEl.innerHTML = legendHtml;
+
+  // 清除旧标记
   state.markers.forEach(m => m.remove());
   state.polylines.forEach(p => p.remove());
   state.markers = [];
   state.polylines = [];
 
-  if (!paths?.length) return;
-
-  const legendItems = {};
-  const sorted = [...paths].filter(p => p.from_lng && p.to_lng)
-    .sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0));
-
-  document.getElementById('map-title').textContent = '家族迁徙地图 · 示例';
-  document.getElementById('map-subtitle').textContent =
-    `4 段迁徙 · ${sorted.length - 1}个城市`;
-
+  // 创建路径和标记
   const polylines = [];
   const markerPairs = [];
 
   sorted.forEach((path, idx) => {
+    const person = personMap[path.person_internal_id] || personMap[path.person_id];
     const color = MIGRATION_COLORS[path.reason_type] || MIGRATION_COLORS.default;
-    const from = [path.from_lng, path.from_lat];
-    const to = [path.to_lng, path.to_lat];
 
-    const midLng = (path.from_lng + path.to_lng) / 2;
-    const midLat = (path.from_lat + path.to_lat) / 2 + 2.5 + (idx * 0.8);
+    // 兼容不同的字段名，转换为数字
+    const fromLng = parseFloat(path.from_lng || path.fromLng || path.start_lng);
+    const fromLat = parseFloat(path.from_lat || path.fromLat || path.start_lat);
+    const toLng = parseFloat(path.to_lng || path.toLng || path.end_lng);
+    const toLat = parseFloat(path.to_lat || path.toLat || path.end_lat);
+    const fromPlace = path.from_place || path.fromPlace || path.start_place;
+    const toPlace = path.to_place || path.toPlace || path.end_place;
+
+    const from = [fromLng, fromLat];
+    const to = [toLng, toLat];
+
+    const midLng = (fromLng + toLng) / 2;
+    const midLat = (fromLat + toLat) / 2 + 2.5 + (idx * 0.8);
     const allPts = generateCurve(from, to, [midLng, midLat], 80);
 
     const line = new AMap.Polyline({
@@ -310,13 +464,13 @@ function renderDemoPaths(paths) {
     polylines.push(line);
     state.polylines.push(line);
 
-    const fromWrap = createCityMarkerEl(path.from_place, color, false);
+    const fromWrap = createCityMarkerEl(fromPlace, color, false);
     const fromMk = new AMap.Marker({
       position: from,
       content: fromWrap,
       anchor: 'bottom-center',
     });
-    const toWrap = createCityMarkerEl(path.to_place, color, idx === sorted.length - 1);
+    const toWrap = createCityMarkerEl(toPlace, color, idx === sorted.length - 1);
     const toMk = new AMap.Marker({
       position: to,
       content: toWrap,
@@ -328,15 +482,91 @@ function renderDemoPaths(paths) {
     state.markers.push(fromMk, toMk);
   });
 
+  // 调整视野
   state.amapInstance.setFitView(state.markers, false, [60, 60, 100, 120]);
 
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs), 1200);
+  // 设置返回链接（带 familyId）
+  const backLink = document.getElementById('back-link');
+  if (backLink && state.familyId) {
+    backLink.href = `/story-timeline.html?familyId=${state.familyId}`;
+  }
+
+  // 开始动画
+  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1200);
 }
 
 // ============================================================
-// 路径动画
+// 生成贝塞尔曲线
 // ============================================================
-function startPathSequence(sorted, polylines, markerPairs) {
+function generateCurve(from, to, mid, steps) {
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const t1 = 1 - t;
+    const x = t1 * t1 * from[0] + 2 * t1 * t * mid[0] + t * t * to[0];
+    const y = t1 * t1 * from[1] + 2 * t1 * t * mid[1] + t * t * to[1];
+    points.push([x, y]);
+  }
+  return points;
+}
+
+// ============================================================
+// 创建城市标记元素
+// ============================================================
+function createCityMarkerEl(placeName, color, isLast) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `
+    opacity:0;transform:translateY(8px);
+    display:flex;flex-direction:column;align-items:center;
+    cursor:pointer;
+  `;
+
+  const dotSize = isLast ? '16px' : '11px';
+  const glow = isLast ? `0 0 18px ${color}aa` : `0 0 10px ${color}66`;
+
+  wrap.innerHTML = `
+    <div style="
+      width:${dotSize};height:${dotSize};border-radius:50%;
+      background:${color};
+      border:2px solid rgba(9,8,6,.85);
+      box-shadow:${glow};
+      ${isLast ? 'animation:termPulse 3.5s ease-in-out infinite;' : ''}
+    "></div>
+    <div style="
+      margin-top:5px;font-family:'Noto Serif SC',serif;
+      font-size:12px;color:${color};white-space:nowrap;
+      background:rgba(9,8,6,.85);
+      padding:4px 8px;border-radius:8px;
+      border:1px solid ${color}55;
+      letter-spacing:.03em;
+      max-width:120px;
+    ">${placeName || ''}</div>
+  `;
+
+  if (isLast && !document.getElementById('term-pulse-style')) {
+    const st = document.createElement('style');
+    st.id = 'term-pulse-style';
+    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 12px ${color}77;}50%{box-shadow:0 0 28px ${color}cc;}}`;
+    document.head.appendChild(st);
+  }
+
+  return wrap;
+}
+
+// ============================================================
+// 显示标记
+// ============================================================
+function showMarker(wrap) {
+  if (!wrap) return;
+  wrap.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+  wrap.style.opacity = '1';
+  wrap.style.transform = 'translateY(0)';
+}
+
+// ============================================================
+// 路径动画序列
+// ============================================================
+function startPathSequence(sorted, polylines, markerPairs, personMap) {
   if (state.isAnimating) return;
   state.isAnimating = true;
 
@@ -345,9 +575,11 @@ function startPathSequence(sorted, polylines, markerPairs) {
   const CARD_SHOW_MS = 3000;
 
   sorted.forEach((path, idx) => {
+    const person = personMap[path.person_internal_id] || personMap[path.person_id];
+
     setTimeout(() => showMarker(markerPairs[idx].fromWrap), delay);
     setTimeout(() => {
-      if (isPathComplete(path)) showEvent(path);
+      showEvent(path, person);
     }, delay + 500);
     const lineDelay = delay + 500 + CARD_SHOW_MS;
     setTimeout(() => drawLineAnimate(polylines[idx], DRAW_MS), lineDelay);
@@ -362,12 +594,13 @@ function startPathSequence(sorted, polylines, markerPairs) {
   setTimeout(() => {
     state.isAnimating = false;
     setTimeout(() => {
-      if (!state.mapData) resetAnimation();
+      resetAnimation(sorted, polylines, markerPairs, personMap);
     }, 3000);
   }, delay);
 }
 
-function resetAnimation() {
+// 重置动画
+function resetAnimation(sorted, polylines, markerPairs, personMap) {
   state.markers.forEach(m => {
     const content = m.getContent();
     if (content && content.style) {
@@ -378,52 +611,44 @@ function resetAnimation() {
   state.polylines.forEach(p => p.setOptions({ strokeOpacity: 0 }));
   hideEvent();
 
-  const sorted = [...DEMO_PATHS].sort((a, b) =>
-    (a.sequence_order || 0) - (b.sequence_order || 0)
-  );
-
-  const polylines = state.polylines;
-  const markerPairs = [];
-  state.markers.forEach((m, i) => {
-    if (i % 2 === 0) markerPairs.push({ fromWrap: m.getContent() });
-    else markerPairs[markerPairs.length - 1].toWrap = m.getContent();
-  });
-
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs), 1000);
+  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1000);
 }
 
-function isPathComplete(path) {
-  return path.year && (path.person_role || path.person_name) &&
-         (path.reason || path.event_desc);
-}
-
-function showEvent(path) {
+// ============================================================
+// 显示迁徙事件卡片
+// ============================================================
+function showEvent(path, person) {
   const eventEl = document.getElementById('migration-event');
   if (!eventEl) return;
 
-  document.getElementById('event-year').textContent = path.year;
-  document.getElementById('event-title').textContent =
-    `${path.person_role || ''}${path.person_name ? ' · ' + path.person_name : ''}`;
-  document.getElementById('event-desc').textContent =
-    path.event_desc || path.reason || '';
-  document.getElementById('event-route').textContent =
-    `${path.from_place} → ${path.to_place}`;
+  const personName = person?.name && person.name !== '未知' ? person.name : '';
+  const personRole = person?.role || '';
+  const generation = person?.generation !== undefined ? `第${person.generation}代` : '';
+
+  const reasonType = REASON_LABELS[path.reason_type] || path.reason_type || '';
+  const reason = path.reason || path.event_desc || '';
+
+  const fromPlace = path.from_place || path.fromPlace || path.start_place;
+  const toPlace = path.to_place || path.toPlace || path.end_place;
+
+  document.getElementById('event-year').textContent = `${path.year || '时间未知'} · ${reasonType}`;
+  document.getElementById('event-title').textContent = `${personRole}${personName ? ' · ' + personName : ''} ${generation}`;
+  document.getElementById('event-desc').textContent = reason;
+  document.getElementById('event-route').textContent = `${fromPlace} → ${toPlace}`;
 
   eventEl.classList.add('visible');
-  setTimeout(() => eventEl.classList.remove('visible'), 4000);
+  setTimeout(() => {
+    eventEl.classList.remove('visible');
+  }, 4000);
 }
 
 function hideEvent() {
   document.getElementById('migration-event')?.classList.remove('visible');
 }
 
-function showMarker(wrap) {
-  if (!wrap) return;
-  wrap.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
-  wrap.style.opacity = '1';
-  wrap.style.transform = 'translateY(0)';
-}
-
+// ============================================================
+// 路径动画
+// ============================================================
 function drawLineAnimate(line, duration) {
   if (!line) return;
   const allPts = line._allPts;
@@ -441,62 +666,22 @@ function drawLineAnimate(line, duration) {
   }, interval * 2);
 }
 
-function generateCurve(from, to, mid, steps = 40) {
-  const points = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const t1 = 1 - t;
-    const x = t1 * t1 * from[0] + 2 * t1 * t * mid[0] + t * t * to[0];
-    const y = t1 * t1 * from[1] + 2 * t1 * t * mid[1] + t * t * to[1];
-    points.push([x, y]);
-  }
-  return points;
-}
-
-function createCityMarkerEl(label, color, isTerminal) {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = `
-    opacity:0;transform:translateY(8px);
-    display:flex;flex-direction:column;align-items:center;
-    cursor:pointer;
+// ============================================================
+// 显示错误
+// ============================================================
+function showError(message) {
+  const loadingEl = document.getElementById('map-loading');
+  loadingEl.innerHTML = `
+    <div class="map-loading-txt">加载失败</div>
+    <div class="map-loading-error">${message}</div>
+    <a href="/mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
   `;
-
-  const dotSize = isTerminal ? '16px' : '11px';
-  const glow = isTerminal ? `0 0 18px ${color}aa` : `0 0 10px ${color}66`;
-
-  wrap.innerHTML = `
-    <div style="
-      width:${dotSize};height:${dotSize};border-radius:50%;
-      background:${color};
-      border:2px solid rgba(9,8,6,.85);
-      box-shadow:${glow};
-      ${isTerminal ? 'animation:termPulse 3.5s ease-in-out infinite;' : ''}
-    "></div>
-    <div style="
-      margin-top:5px;font-family:'Noto Serif SC',serif;
-      font-size:12px;color:${color};white-space:nowrap;
-      background:rgba(9,8,6,.85);
-      padding:4px 8px;border-radius:8px;
-      border:1px solid ${color}55;
-      letter-spacing:.03em;
-      max-width:120px;
-    ">${label || ''}</div>
-  `;
-
-  if (isTerminal && !document.getElementById('term-pulse-style')) {
-    const st = document.createElement('style');
-    st.id = 'term-pulse-style';
-    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 12px ${color}77;}50%{box-shadow:0 0 28px ${color}cc;}}`;
-    document.head.appendChild(st);
-  }
-
-  return wrap;
 }
 
 // ============================================================
 // 启动
 // ============================================================
-initMap();
+init();
 </script>
 </body>
 </html>
