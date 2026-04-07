@@ -146,12 +146,20 @@ function checkAmap() {
 // ============================================================
 
 const FALLBACK_COORDS = {
-  '黑龙江省双城县': { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
-  '哈尔滨':         { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
-  '北京':           { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
-  '北京市':         { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
-  '辽宁省铁岭县':   { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
-  '铁岭':           { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+  // 黑龙江
+  '黑龙江省双城县':   { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
+  '双城县':          { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
+  '双城':            { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
+  '哈尔滨':          { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
+  '黑龙江省哈尔滨':  { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
+  // 北京
+  '北京':            { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
+  '北京市':          { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
+  // 辽宁
+  '辽宁省铁岭县':    { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+  '铁岭县':          { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+  '铁岭':            { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+  '辽宁省铁岭市':    { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
 };
 
 async function geocodePlace(placeName) {
@@ -176,14 +184,23 @@ async function geocodePlace(placeName) {
   const geo = await amapClient.geocode(placeName);
 
   if (!geo) {
+    // 先精确匹配 fallback
     const fallback = FALLBACK_COORDS[placeName];
     if (fallback) {
-      log.warn(`高德失败，使用 FALLBACK: ${placeName} → ${fallback.longitude}, ${fallback.latitude}`);
+      log.warn(`高德失败，使用 FALLBACK (精确): ${placeName} → ${fallback.longitude}, ${fallback.latitude}`);
       return fallback;
     }
-    log.error(`地理编码完全失败: "${placeName}"`);
+    // 模糊匹配 fallback（包含匹配）
+    for (const [name, coords] of Object.entries(FALLBACK_COORDS)) {
+      if (placeName.includes(name) || name.includes(placeName)) {
+        log.warn(`高德失败，使用 FALLBACK (模糊): ${placeName} ≈ ${name} → ${coords.longitude}, ${coords.latitude}`);
+        return { ...coords };
+      }
+    }
+    log.error(`地理编码完全失败： "${placeName}"`);
     return null;
   }
+
 
   log.ok(`地理编码成功: ${placeName} → ${geo.lng}, ${geo.lat} (${geo.formatted})`);
 
@@ -414,6 +431,11 @@ ${conversationText}`;
       );
       fid = fp.rows[0].id;
       log.db(`[extract] 新建 family_profile  id=${fid}  name=${data.family_name}`);
+    } else {
+      // ← 修复：重新分析时删除旧记录，避免重复
+      log.db(`[extract] 重新分析，先删除旧数据 familyId=${fid}`);
+      await db.query('DELETE FROM migrations WHERE family_id=$1', [fid]);
+      await db.query('DELETE FROM persons WHERE family_id=$1', [fid]);
     }
 
     // 2. 人物
@@ -488,7 +510,34 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
   log.info(`[migration-map] 查询 familyId=${familyId}`);
 
   try {
-    const paths   = await db.query(`SELECT * FROM v_migration_paths WHERE family_id=$1`, [familyId]);
+    // 查询迁徙路径（包含 person_id）
+    const paths = await db.query(`
+      SELECT
+        m.id,
+        m.family_id,
+        m.sequence_order,
+        m.person_id,
+        p.role AS person_role,
+        p.name AS person_name,
+        p.generation,
+        fp.raw_name AS from_place,
+        fp.longitude AS from_lng,
+        fp.latitude AS from_lat,
+        tp.raw_name AS to_place,
+        tp.longitude AS to_lng,
+        tp.latitude AS to_lat,
+        m.year,
+        m.reason,
+        m.reason_type,
+        m.emotion_weight
+      FROM migrations m
+      JOIN persons p ON m.person_id = p.id
+      LEFT JOIN places fp ON m.from_place_id = fp.id
+      LEFT JOIN places tp ON m.to_place_id = tp.id
+      WHERE m.family_id = $1
+      ORDER BY m.sequence_order
+    `, [familyId]);
+
     const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
     const family = await db.query(`SELECT family_name FROM family_profiles WHERE id=$1`, [familyId]);
 
@@ -506,7 +555,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     const missingCoords = paths.rows.filter(r => !r.from_lng || !r.to_lng);
     if (missingCoords.length > 0) {
       log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
-        missingCoords.map(r => `${r.from_place_raw}→${r.to_place_raw}`).join(', '));
+        missingCoords.map(r => `${r.from_place}→${r.to_place}`).join(', '));
     }
 
     log.ok(`[migration-map] 返回成功  events=${events.length}`);

@@ -1,2 +1,8 @@
 - [项目当前进展](project_status.md) — 家族迁徙地图应用的开发进度和待办事项
 - [迁徙事件同步显示实现](tech_implementation.md) — 地图路径动画绘制过程中同步显示事件卡片的实现方式
+- [移动端页面流程](mobile_flow.md) — 移动端三页面流程顺序和返回链接的正确跳转目标
+- [story-timeline 人物信息匹配修复](story_timeline_person_fix.md) — 修复人物信息匹配问题
+- [story-timeline 可编辑和滚动音效](story_timeline_editable.md) — 所有条目可编辑 + 移动端滚动声音提示
+- [mobile-chat 缓存优化](mobile_chat_cache.md) — 已有数据时跳过 AI 分析，直接加载数据库
+- [AI 分析结果缓存原则](ai_cache_principle.md) — 通用设计原则：首次分析 + 后续缓存模式
+- [extract API 重复数据修复](extract_duplicate_fix.md) — 修复 /extract 端点创建重复记录的问题
