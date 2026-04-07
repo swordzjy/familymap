@@ -521,9 +521,11 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
         p.name AS person_name,
         p.generation,
         fp.raw_name AS from_place,
+        m.from_place_raw,
         fp.longitude AS from_lng,
         fp.latitude AS from_lat,
         tp.raw_name AS to_place,
+        m.to_place_raw,
         tp.longitude AS to_lng,
         tp.latitude AS to_lat,
         m.year,
@@ -538,13 +540,24 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       ORDER BY m.sequence_order
     `, [familyId]);
 
+    // 处理返回数据：当 from_place/to_place 为空时，使用原始地名
+    const processedPaths = paths.rows.map(row => ({
+      ...row,
+      from_place: row.from_place || row.from_place_raw || '未知',
+      to_place: row.to_place || row.to_place_raw || '未知',
+      from_lng: row.from_lng,
+      from_lat: row.from_lat,
+      to_lng: row.to_lng,
+      to_lat: row.to_lat,
+    }));
+
     const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
     const family = await db.query(`SELECT family_name FROM family_profiles WHERE id=$1`, [familyId]);
 
-    log.db(`[migration-map] paths=${paths.rows.length}  persons=${persons.rows.length}`);
+    log.db(`[migration-map] paths=${processedPaths.length}  persons=${persons.rows.length}`);
 
     const events = [];
-    for (const row of paths.rows) {
+    for (const row of processedPaths) {
       if (row.year) {
         const matched = await matchHistoricalEvents(row.year);
         if (matched.length > 0) events.push({ migration_id: row.id, year: row.year, events: matched });
@@ -552,7 +565,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     }
 
     // 检查是否有坐标缺失
-    const missingCoords = paths.rows.filter(r => !r.from_lng || !r.to_lng);
+    const missingCoords = processedPaths.filter(r => !r.from_lng || !r.to_lng);
     if (missingCoords.length > 0) {
       log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
         missingCoords.map(r => `${r.from_place}→${r.to_place}`).join(', '));
@@ -562,7 +575,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     res.json({
       success: true,
       familyName: family.rows[0]?.family_name || '您的家族',
-      paths: paths.rows,
+      paths: processedPaths,
       persons: persons.rows,
       historicalEvents: events
     });

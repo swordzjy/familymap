@@ -12,7 +12,10 @@
       "Bash(curl -s \"http://localhost:3005/amapapi/migration-map/c3060856-ce45-4d1a-ac43-48f60cb24826\")",
       "Bash(open:*)",
       "Bash(curl -s \"http://localhost:3005/story-timeline.html\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(curl -s http://localhost:3005/amapapi/migration-map/f32d2da9-b5ff-4f03-9db0-c1be4eada9e6)"
     ]
   }
 }
