@@ -511,13 +511,14 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
   log.info(`[migration-map] 查询 familyId=${familyId}`);
 
   try {
-    // 查询迁徙路径（包含 person_id）
+    // 查询迁徙路径（包含 person_id 和 person_internal_id）
     const paths = await db.query(`
       SELECT
         m.id,
         m.family_id,
         m.sequence_order,
         m.person_id,
+        p.internal_id AS person_internal_id,
         p.role AS person_role,
         p.name AS person_name,
         p.generation,
