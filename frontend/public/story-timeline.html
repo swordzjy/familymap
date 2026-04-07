@@ -892,8 +892,8 @@ async function saveToDatabase(path, person, updates) {
 
     alert('保存成功！');
 
-    // 重新渲染
-    renderTimeline(currentData);
+    // 简单刷新：重新加载页面
+    window.location.reload();
 
   } catch (err) {
     console.error('[story-timeline] 保存失败:', err);
