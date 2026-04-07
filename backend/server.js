@@ -358,7 +358,7 @@ app.post('/amapapi/extract', async (req, res) => {
     {
       "internal_id": "p1",
       "role": "本人|父亲|母亲|爷爷|奶奶|外公|外婆",
-      "name": "姓名（未知填未知）",
+      "name": "姓名（未知时使用角色名，如"父亲"）",
       "birth_year": 1970,
       "birth_place": "原始地名",
       "occupation": "职业",
@@ -387,6 +387,7 @@ app.post('/amapapi/extract', async (req, res) => {
 - generation: 0=本人, 1=父辈, 2=祖辈, -1=子辈
 - emotion_weight: 重大历史背景下的迁徙填high，普通求学填medium，日常移居填low
 - sequence_order 全局递增，按时间排序
+- name 字段：如果对话中没有提到具体姓名，直接使用 role 的值（如"父亲"、"爷爷"）
 
 对话内容：
 ${conversationText}`;
