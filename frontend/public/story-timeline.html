@@ -782,58 +782,111 @@ function savePathEdit(pathId, personId) {
   const migrations = parsed.data.migrations || parsed.data.paths || [];
   const persons = parsed.data.persons || [];
 
-  // 找到对应的迁徙记录 - 修复：使用 pathId 匹配 internal_id 或 id
+  // 找到对应的迁徙记录
   let pathIndex = -1;
   if (pathId.startsWith('path_')) {
-    // 是 path_0, path_1 格式，使用索引查找
     const idx = parseInt(pathId.replace('path_', ''));
     if (!isNaN(idx) && idx >= 0 && idx < migrations.length) {
       pathIndex = idx;
     }
-  } else {
-    // 是 internal_id，直接查找
-    pathIndex = migrations.findIndex(p => p.internal_id === pathId);
   }
 
   if (pathIndex === -1) {
-    // 尝试使用 id 查找（后端返回的 UUID）
     pathIndex = migrations.findIndex(p => p.id === pathId);
   }
 
   if (pathIndex === -1) {
-    console.error('[story-timeline] 未找到迁徙记录，pathId:', pathId, 'migrations:', migrations.map(p => ({ id: p.id, internal_id: p.internal_id })));
+    console.error('[story-timeline] 未找到迁徙记录，pathId:', pathId);
     alert('未找到对应的迁徙记录，请刷新页面重试');
     return;
   }
 
-  // 更新迁徙数据
   const path = migrations[pathIndex];
-  if (year) path.year = parseInt(year) || year;
-  if (fromPlace) path.from_place = fromPlace;
-  if (toPlace) path.to_place = toPlace;
-  if (reason) path.reason = reason;
 
-  // 更新人物数据 - 修复：支持多种 personId 格式
-  let personIndex = persons.findIndex(p => p.id === personId);
-  if (personIndex === -1 && personId.startsWith('p') && !personId.includes('-')) {
-    // 可能是 internal_id 格式（如 p1, p2）
-    personIndex = persons.findIndex(p => p.internal_id === personId);
+  // 找到对应的人物记录
+  let person = null;
+  if (personId) {
+    let personIndex = persons.findIndex(p => p.id === personId);
+    if (personIndex === -1 && personId && typeof personId === 'string') {
+      personIndex = persons.findIndex(p => p.internal_id === personId);
+    }
+    if (personIndex === -1 && path.person_id) {
+      personIndex = persons.findIndex(p => p.id === path.person_id);
+    }
+    if (personIndex !== -1) {
+      person = persons[personIndex];
+    }
   }
 
-  if (personIndex !== -1) {
-    const person = persons[personIndex];
-    if (role) person.role = role;
+  if (!person && path.person_id) {
+    person = persons.find(p => p.id === path.person_id);
+  }
+
+  if (!person) {
+    console.error('[story-timeline] 未找到人物记录');
+    alert('未找到对应的人物记录，请刷新页面重试');
+    return;
+  }
+
+  // 调用后端 API 保存到数据库
+  saveToDatabase(path, person, { year, fromPlace, toPlace, reason, role, name });
+}
+
+// 保存到数据库
+async function saveToDatabase(path, person, updates) {
+  const { year, fromPlace, toPlace, reason, role, name } = updates;
+
+  console.log('[story-timeline] 调用保存 API:', {
+    familyId,
+    personId: person.id,
+    migrationId: path.id,
+    updates
+  });
+
+  try {
+    const response = await fetch(`${API_BASE}/save-edit/${familyId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personId: person.id,
+        name: name || person.name,
+        role: role || person.role,
+        migrationId: path.id,
+        year: year || path.year,
+        fromPlace: fromPlace || path.from_place_raw,
+        toPlace: toPlace || path.to_place_raw,
+        reason: reason || path.reason
+      })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || '保存失败');
+    }
+
+    console.log('[story-timeline] 保存成功');
+
+    // 更新本地数据
     if (name) person.name = name;
-  } else {
-    console.warn('[story-timeline] 未找到人物记录，personId:', personId);
+    if (role) person.role = role;
+    if (year) path.year = year;
+    if (fromPlace) path.from_place = fromPlace;
+    if (fromPlace) path.from_place_raw = fromPlace;
+    if (toPlace) path.to_place = toPlace;
+    if (toPlace) path.to_place_raw = toPlace;
+    if (reason) path.reason = reason;
+
+    // 更新 sessionStorage
+    sessionStorage.setItem('pending_chat_data', JSON.stringify(parsed));
+
+    alert('保存成功！');
+    renderTimeline(parsed.data);
+
+  } catch (err) {
+    console.error('[story-timeline] 保存失败:', err);
+    alert('保存失败：' + err.message);
   }
-
-  // 更新 sessionStorage
-  sessionStorage.setItem('pending_chat_data', JSON.stringify(parsed));
-
-  // 重新渲染
-  alert('保存成功！');
-  renderTimeline(parsed.data);
 }
 
 // 取消编辑

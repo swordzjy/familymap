@@ -589,6 +589,134 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
 });
 
 // ============================================================
+// 路由：POST /amapapi/save-edit/:familyId  保存编辑的迁徙/人物信息
+// ============================================================
+app.post('/amapapi/save-edit/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  const { personId, name, role, migrationId, year, fromPlace, toPlace, reason } = req.body;
+
+  log.db(`[save-edit] 开始 familyId=${familyId}`, { personId, name, role, migrationId });
+
+  try {
+    const client = await db.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 更新人物信息
+      if (personId) {
+        const updates = [];
+        const values = [];
+        let paramCount = 0;
+
+        if (name) {
+          paramCount++;
+          updates.push(`name = $${paramCount}`);
+          values.push(name);
+        }
+        if (role) {
+          paramCount++;
+          updates.push(`role = $${paramCount}`);
+          values.push(role);
+        }
+
+        if (updates.length > 0) {
+          paramCount++;
+          values.push(personId);
+          await client.query(
+            `UPDATE persons SET ${updates.join(', ')} WHERE id = $${paramCount}`,
+            values
+          );
+          log.db(`[save-edit] 人物已更新 personId=${personId}`);
+        }
+      }
+
+      // 更新迁徙信息
+      if (migrationId) {
+        const updates = [];
+        const values = [];
+        let paramCount = 0;
+
+        if (year) {
+          paramCount++;
+          updates.push(`year = $${paramCount}`);
+          values.push(parseInt(year));
+        }
+        if (fromPlace) {
+          paramCount++;
+          updates.push(`from_place_raw = $${paramCount}`);
+          values.push(fromPlace);
+          // 尝试获取地名坐标
+          const fromGeo = await geocodePlace(fromPlace);
+          if (fromGeo) {
+            // 检查地名是否已存在
+            const existingPlace = await client.query('SELECT id FROM places WHERE raw_name = $1', [fromPlace]);
+            if (existingPlace.rows.length === 0) {
+              // 插入新地名
+              await client.query(
+                `INSERT INTO places (raw_name, normalized_name, longitude, latitude) VALUES ($1, $2, $3, $4)`,
+                [fromPlace, fromGeo.formatted || fromPlace, fromGeo.lng, fromGeo.lat]
+              );
+            }
+            const place = await client.query('SELECT id FROM places WHERE raw_name = $1', [fromPlace]);
+            updates.push(`from_place_id = $${++paramCount}`);
+            values.push(place.rows[0]?.id);
+          }
+        }
+        if (toPlace) {
+          paramCount++;
+          updates.push(`to_place_raw = $${paramCount}`);
+          values.push(toPlace);
+          // 尝试获取地名坐标
+          const toGeo = await geocodePlace(toPlace);
+          if (toGeo) {
+            const existingPlace = await client.query('SELECT id FROM places WHERE raw_name = $1', [toPlace]);
+            if (existingPlace.rows.length === 0) {
+              await client.query(
+                `INSERT INTO places (raw_name, normalized_name, longitude, latitude) VALUES ($1, $2, $3, $4)`,
+                [toPlace, toGeo.formatted || toPlace, toGeo.lng, toGeo.lat]
+              );
+            }
+            const place = await client.query('SELECT id FROM places WHERE raw_name = $1', [toPlace]);
+            updates.push(`to_place_id = $${++paramCount}`);
+            values.push(place.rows[0]?.id);
+          }
+        }
+        if (reason) {
+          paramCount++;
+          updates.push(`reason = $${paramCount}`);
+          values.push(reason);
+        }
+
+        if (updates.length > 0) {
+          paramCount++;
+          values.push(migrationId);
+          await client.query(
+            `UPDATE migrations SET ${updates.join(', ')} WHERE id = $${paramCount}`,
+            values
+          );
+          log.db(`[save-edit] 迁徙已更新 migrationId=${migrationId}`);
+        }
+      }
+
+      await client.query('COMMIT');
+      log.ok(`[save-edit] 完成 familyId=${familyId}`);
+      res.json({ success: true });
+
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    log.error('[save-edit] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // 路由：POST /amapapi/generate-story/:familyId
 // ============================================================
 app.post('/amapapi/generate-story/:familyId', async (req, res) => {
