@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>家族故事时间线</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --night:#090806;--ink0:#110f0b;--ink1:#1a1710;--ink2:#232018;
+  --gold:#c8a96e;--gold2:#e8d098;--cream:#eee8d8;
+  --mist:rgba(238,232,216,0.5);--mist2:rgba(238,232,216,0.25);
+  --mist3:rgba(238,232,216,0.1);--mist4:rgba(238,232,216,0.05);
+  --purple:#a890e0;--teal:#3ec9a0;--coral:#e07258;--blue:#6aabdc;
+  --serif:'Noto Serif SC',serif;--mono:'DM Mono',monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
+  color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+
+/* 顶部导航 */
+.nav-bar{
+  position:absolute;top:0;left:0;right:0;z-index:100;
+  padding:calc(8px + env(safe-area-inset-top)) 16px 8px;
+  background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--mist4);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nav-title{
+  font-family:var(--serif);font-size:17px;font-weight:400;
+  color:var(--cream);letter-spacing:0.05em;
+}
+.nav-subtitle{
+  font-size:12px;color:var(--mist2);
+  font-family:var(--mono);
+}
+
+/* 内容区 */
+.content{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  padding-top:calc(50px + env(safe-area-inset-top));
+  padding-bottom:calc(80px + env(safe-area-inset-bottom));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.content::-webkit-scrollbar{display:none;}
+
+/* 家族信息卡片 */
+.family-card{
+  margin:16px;
+  background:var(--ink1);
+  border:1px solid var(--mist4);
+  border-radius:12px;
+  padding:16px;
+}
+.family-name{
+  font-family:var(--serif);font-size:20px;font-weight:400;
+  color:var(--cream);margin-bottom:4px;
+}
+.family-meta{
+  font-size:12px;color:var(--mist2);
+  font-family:var(--mono);
+}
+
+/* 时间线 */
+.timeline{
+  position:relative;
+  padding:20px 0 10px 60px;
+}
+/* 时间轴线 */
+.timeline::before{
+  content:'';position:absolute;left:24px;top:0;bottom:0;
+  width:2px;
+  background:linear-gradient(var(--mist4),var(--gold) 30%,var(--gold) 70%,var(--mist4));
+}
+
+/* 时间线事件 */
+.timeline-item{
+  position:relative;
+  margin-bottom:20px;
+  animation:slideIn 0.4s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+
+/* 时间点 */
+.timeline-dot{
+  position:absolute;left:-44px;top:0;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--ink0);
+  border:2px solid var(--gold);
+  z-index:1;
+}
+.timeline-item.incomplete .timeline-dot{
+  border-color:var(--mist3);
+  background:var(--ink2);
+}
+
+/* 事件卡片 */
+.event-card{
+  background:var(--ink1);
+  border:1px solid var(--mist4);
+  border-radius:12px;
+  padding:14px;
+}
+.event-card.complete{
+  border-left:3px solid var(--gold);
+}
+.event-card.incomplete{
+  border-left:3px solid var(--mist3);
+  background:var(--ink0);
+}
+
+/* 年份标签 */
+.event-year{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--gold);
+  background:rgba(200,169,110,0.1);
+  padding:3px 8px;
+  border-radius:10px;
+  margin-bottom:8px;
+  letter-spacing:0.05em;
+}
+.event-card.incomplete .event-year{
+  color:var(--mist2);
+  background:var(--mist3);
+}
+
+/* 人物 */
+.event-person{
+  font-family:var(--serif);
+  font-size:15px;
+  font-weight:400;
+  color:var(--cream);
+  margin-bottom:6px;
+}
+
+/* 地点 */
+.event-route{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;
+  color:var(--mist);
+  margin-bottom:6px;
+}
+.event-route-arrow{
+  color:var(--gold);
+  font-weight:bold;
+}
+.event-card.incomplete .event-route{
+  color:var(--mist2);
+}
+
+/* 事件描述 */
+.event-desc{
+  font-size:13px;
+  color:var(--mist);
+  line-height:1.6;
+}
+
+/* 缺失信息提示 */
+.missing-info{
+  margin-top:8px;
+  padding:8px 10px;
+  background:rgba(224,114,88,0.1);
+  border:1px solid rgba(224,114,88,0.3);
+  border-radius:8px;
+  font-size:11px;
+  color:var(--coral);
+  line-height:1.5;
+}
+
+/* 底部操作栏 */
+.action-bar{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:10px 16px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
+  border-top:1px solid var(--mist4);
+  display:flex;gap:10px;
+}
+.btn{
+  flex:1;
+  padding:12px 16px;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:500;
+  text-align:center;
+  text-decoration:none;
+  cursor:pointer;
+  border:none;
+}
+.btn-primary{
+  background:var(--gold);
+  color:var(--night);
+}
+.btn-primary:active{opacity:0.8;}
+.btn-secondary{
+  background:transparent;
+  border:1px solid var(--mist4);
+  color:var(--mist);
+}
+.btn-secondary:active{background:var(--mist3);}
+
+/* 加载状态 */
+.loading{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:200px;
+}
+.loading-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--gold);
+  animation:ldot 1.4s ease-in-out infinite;
+}
+@keyframes ldot{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
+.loading-text{
+  font-size:12px;color:var(--mist2);
+  margin-top:12px;letter-spacing:0.08em;
+}
+
+/* 图例 */
+.legend{
+  display:flex;gap:12px;justify-content:center;
+  padding:12px 16px;
+  border-bottom:1px solid var(--mist4);
+}
+.legend-item{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--mist2);
+}
+.legend-dot{
+  width:8px;height:8px;border-radius:50%;
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="nav-bar">
+  <div class="nav-title">家族故事时间线</div>
+  <div class="nav-subtitle" id="nav-subtitle"></div>
+</div>
+
+<!-- 图例 -->
+<div class="legend" id="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--gold)"></div>
+    <span>完整事件</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--mist3)"></div>
+    <span>信息待补充</span>
+  </div>
+</div>
+
+<!-- 内容区 -->
+<div class="content" id="content">
+  <div class="loading" id="loading">
+    <div class="loading-dot"></div>
+    <div class="loading-text">正在整理家族故事</div>
+  </div>
+</div>
+
+<!-- 底部操作栏 -->
+<div class="action-bar" id="action-bar" style="display:none;">
+  <a href="/mobile-chat.html" class="btn btn-secondary">返回聊天</a>
+  <button class="btn btn-primary" onclick="generateMap()">生成迁徙地图 →</button>
+</div>
+
+<script>
+const API_BASE = '/amapapi';
+const familyId = getFamilyIdFromStorage();
+
+// 从 localStorage 获取 familyId
+function getFamilyIdFromStorage() {
+  try {
+    const saved = localStorage.getItem('family_migration_chat_state');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.familyId;
+    }
+  } catch (e) {}
+  // 也检查 URL 参数
+  const params = new URLSearchParams(window.location.search);
+  return params.get('familyId');
+}
+
+// 加载数据
+async function loadTimeline() {
+  if (!familyId) {
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:14px;color:var(--mist2);margin-bottom:12px;">没有找到家族信息</div>
+        <a href="/mobile-chat.html" class="btn btn-primary" style="display:inline-block;padding:10px 20px;">开始聊天</a>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/migration-map/${familyId}`);
+    const data = await response.json();
+
+    renderTimeline(data);
+  } catch (e) {
+    console.error('加载失败:', e);
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:14px;color:var(--mist2);margin-bottom:12px;">加载失败，请重试</div>
+        <button onclick="location.reload()" class="btn btn-primary" style="display:inline-block;padding:10px 20px;">重试</button>
+      </div>
+    `;
+  }
+}
+
+// 渲染时间线
+function renderTimeline(data) {
+  const content = document.getElementById('content');
+  document.getElementById('loading').style.display = 'none';
+
+  // 家族信息
+  const familyName = data.familyName || '您的家族';
+  const personCount = data.persons?.length || 0;
+  const migrationCount = data.paths?.length || 0;
+
+  document.getElementById('nav-subtitle').textContent = `${personCount} 位家人 · ${migrationCount} 段迁徙`;
+
+  // 家族卡片
+  let html = `
+    <div class="family-card">
+      <div class="family-name">${familyName}</div>
+      <div class="family-meta">${personCount} 位家人 · ${migrationCount} 段迁徙</div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  `;
+
+  content.innerHTML = html;
+
+  const timeline = document.getElementById('timeline');
+
+  // 按时间排序迁徙事件
+  const sortedPaths = [...(data.paths || [])].sort((a, b) =>
+    (a.sequence_order || 0) - (b.sequence_order || 0)
+  );
+
+  // 构建人物映射
+  const personMap = {};
+  (data.persons || []).forEach(p => {
+    personMap[p.internal_id || p.id] = p;
+  });
+
+  // 渲染每个事件
+  sortedPaths.forEach((path, idx) => {
+    const person = personMap[path.person_internal_id] || personMap[path.person_id];
+    const isComplete = isPathComplete(path, person);
+
+    const item = document.createElement('div');
+    item.className = `timeline-item ${isComplete ? '' : 'incomplete'}`;
+    item.innerHTML = `
+      <div class="timeline-dot"></div>
+      <div class="event-card ${isComplete ? 'complete' : 'incomplete'}">
+        <div class="event-year">${path.year || '时间未知'}</div>
+        <div class="event-person">${person?.role || ''}${person?.name && person.name !== '未知' ? ' ' + person.name : ''}</div>
+        ${path.from_place && path.to_place ? `
+          <div class="event-route">
+            <span>${path.from_place}</span>
+            <span class="event-route-arrow">→</span>
+            <span>${path.to_place}</span>
+          </div>
+        ` : ''}
+        <div class="event-desc">${path.reason || path.event_desc || '事件详情待补充'}</div>
+        ${!isComplete ? `
+          <div class="missing-info">
+            ${getMissingInfo(path, person)}
+          </div>
+        ` : ''}
+      </div>
+    `;
+    timeline.appendChild(item);
+  });
+
+  // 显示操作栏
+  document.getElementById('action-bar').style.display = 'flex';
+
+  // 保存数据到 sessionStorage 供地图页面使用
+  sessionStorage.setItem('pending_map_data', JSON.stringify(data));
+}
+
+// 检查事件是否完整（时间、人物、地点齐全）
+function isPathComplete(path, person) {
+  return path.year &&
+         path.from_lng && path.from_lat &&
+         path.to_lng && path.to_lat &&
+         (person?.role || person?.name);
+}
+
+// 获取缺失信息描述
+function getMissingInfo(path, person) {
+  const missing = [];
+  if (!path.year) missing.push('时间');
+  if (!path.from_lng || !path.from_lat) missing.push('出发地');
+  if (!path.to_lng || !path.to_lat) missing.push('目的地');
+  if (!person?.role && (!person?.name || person.name === '未知')) missing.push('人物');
+
+  if (missing.length > 0) {
+    return `缺少：${missing.join('、')} —— 可在聊天中补充`;
+  }
+  return '信息待补充';
+}
+
+// 生成地图
+function generateMap() {
+  window.location.href = `/mobile.html?familyId=${familyId}`;
+}
+
+// 页面加载
+loadTimeline();
+</script>
+</body>
+</html>

@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>寻·根</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!--
+  ████████████████████████████████████████████████████
+  高德地图接入（两步，缺一不可）
+  ████████████████████████████████████████████████████
+
+  ⚠ INVALID_USER_KEY 错误原因：
+    你用的 Key 是"Web服务API"类型（只能后端HTTP调用）。
+    前端地图必须用"Web端(JS API)"类型的 Key——是两种不同的 Key！
+
+  如何创建正确的 Key：
+    高德控制台 → 应用管理 → 点击应用 → 添加Key
+    → 服务平台选「Web端(JS API)」→ 提交
+
+  替换以下两处后直接用 Chrome 打开此文件即可：
+
+  第①处：AMAP_JSCODE  → 控制台→应用详情→安全密钥（同一个应用的密钥）
+  第②处：AMAP_JS_KEY  → 刚创建的 Web端JS API 类型的 Key
+  ████████████████████████████████████████████████████
+-->
+
+<!-- Nginx 代理模式：不需要 _AMapSecurityConfig，jscode 由服务器注入 -->
+<script src="https://webapi.amap.com/loader.js"></script>
+
+<style>
+:root{
+  --night:#090806;--ink0:#110f0b;--ink1:#1a1710;--ink2:#232018;--ink3:#2e2a20;
+  --gold:#c8a96e;--gold2:#e8d098;--gold3:#f5e8c0;
+  --cream:#eee8d8;--mist:rgba(238,232,216,.5);--mist2:rgba(238,232,216,.25);
+  --mist3:rgba(238,232,216,.1);--mist4:rgba(238,232,216,.05);
+  --teal:#3ec9a0;--coral:#e07258;--blue:#6aabdc;--purple:#a890e0;
+  --serif:'Noto Serif SC',serif;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
+  color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+#app{width:100%;height:100%;display:flex;flex-direction:column;}
+
+/* nav */
+.nav{height:54px;flex-shrink:0;display:flex;align-items:center;padding:0 18px;
+  border-bottom:1px solid var(--mist4);position:relative;z-index:100;}
+.nav-logo{font-family:var(--serif);font-size:16px;letter-spacing:.25em;color:var(--mist2);}
+.tabs{display:flex;gap:2px;margin:0 auto;}
+.tab{height:34px;padding:0 18px;border-radius:17px;border:none;
+  font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;gap:6px;
+  background:transparent;color:var(--mist2);}
+.tab.active{background:var(--mist3);color:var(--cream);}
+.tab-dot{width:6px;height:6px;border-radius:50%;}
+
+/* stats bar */
+.stats{display:flex;gap:20px;padding:0 18px;height:40px;align-items:center;
+  flex-shrink:0;border-bottom:1px solid var(--mist4);}
+.st{display:flex;align-items:baseline;gap:4px;}
+.sn{font-family:var(--mono);font-size:18px;font-weight:300;color:var(--gold);}
+.sl{font-size:12px;color:var(--mist2);letter-spacing:.04em;}
+.sp{width:1px;height:14px;background:var(--mist4);}
+
+/* panels */
+.panels{flex:1;position:relative;overflow:hidden;}
+.panel{position:absolute;inset:0;opacity:0;pointer-events:none;
+  transition:opacity .35s ease,transform .35s ease;transform:translateY(6px);overflow:hidden;}
+.panel.active{opacity:1;pointer-events:all;transform:none;}
+
+/* ═══ MAP PANEL ═══ */
+#p-map{display:flex;flex-direction:column;}
+.map-wrap{flex:1;min-height:0;position:relative;}
+
+/* 高德地图容器 */
+#amap-container{
+  width:100%;height:100%;
+  /* 高德地图需要明确的尺寸 */
+}
+
+/* 覆盖高德地图的默认 Logo 位置（可选） */
+.amap-logo{bottom:4px!important;left:4px!important;}
+.amap-copyright{bottom:4px!important;right:4px!important;}
+
+/* 迁徙路径覆盖层（画在地图上方的 canvas） */
+#route-overlay{
+  position:absolute;inset:0;pointer-events:none;z-index:10;
+}
+
+/* 迁徙事件卡片 */
+.migration-event{
+  position:absolute;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);
+  z-index:30;
+  background:rgba(9,8,6,.92);backdrop-filter:blur(12px);
+  border:1px solid rgba(200,169,110,.3);
+  border-radius:12px;
+  padding:18px 24px;
+  min-width:280px;max-width:360px;
+  text-align:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .6s ease,transform .6s ease;
+}
+.migration-event.visible{
+  opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0);
+}
+.event-year{
+  font-family:var(--mono);font-size:28px;font-weight:500;
+  color:var(--gold);margin-bottom:6px;
+  letter-spacing:.1em;
+}
+.event-title{
+  font-family:var(--serif);font-size:16px;font-weight:400;
+  color:var(--cream);margin-bottom:8px;
+  letter-spacing:.05em;
+}
+.event-desc{
+  font-family:var(--serif);font-size:13px;font-weight:200;
+  color:var(--mist2);line-height:1.7;
+}
+
+/* 城市信息弹窗（取代高德原生 InfoWindow，更符合设计） */
+.city-pop{position:absolute;bottom:0;left:0;right:0;z-index:20;
+  background:linear-gradient(transparent,var(--ink1) 18%);
+  padding:40px 18px 14px;transform:translateY(100%);transition:transform .4s ease;}
+.city-pop.open{transform:none;}
+.cp-close{position:absolute;top:10px;right:14px;width:32px;height:32px;border-radius:50%;
+  background:var(--mist3);border:none;color:var(--mist2);font-size:18px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.cp-name{font-family:var(--serif);font-size:24px;font-weight:300;margin-bottom:4px;}
+.cp-meta{font-size:14px;color:var(--mist2);margin-bottom:12px;}
+.cp-story{font-family:var(--serif);font-size:15px;font-weight:200;color:var(--mist);line-height:1.9;}
+
+/* 地图底部信息条 */
+.map-bot{flex-shrink:0;padding:12px 18px;border-top:1px solid var(--mist4);background:var(--ink0);}
+.map-title{font-family:var(--serif);font-size:15px;font-weight:300;color:var(--cream);margin-bottom:9px;}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex-shrink:0;display:flex;align-items:center;gap:7px;padding:8px 14px;
+  border-radius:20px;border:1px solid var(--mist3);background:var(--mist4);
+  font-size:13px;color:var(--mist);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.chip:hover,.chip.on{border-color:var(--gold);color:var(--cream);background:rgba(200,169,110,.07);}
+.chip-d{width:7px;height:7px;border-radius:50%;}
+.chip-y{font-family:var(--mono);font-size:11px;color:var(--gold);margin-left:3px;}
+
+/* 地图加载状态 */
+.map-loading{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:var(--ink0);z-index:5;}
+.map-loading-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);
+  animation:ldot 1.4s ease-in-out infinite;}
+@keyframes ldot{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+.map-loading-txt{font-size:12px;color:var(--mist2);margin-top:12px;letter-spacing:.08em;}
+
+/* ═══ TREE PANEL ═══ */
+#p-tree{display:flex;flex-direction:column;}
+.tree-wrap{flex:1;min-height:0;position:relative;overflow:hidden;}
+#tree-svg{width:100%;height:100%;display:block;}
+.tree-legend{position:absolute;top:10px;right:12px;
+  background:rgba(9,8,6,.78);backdrop-filter:blur(8px);
+  padding:10px 14px;border-radius:9px;border:1px solid var(--mist4);}
+.tl-i{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--mist2);margin-bottom:5px;}
+.tl-i:last-child{margin:0;}
+.tl-d{width:9px;height:9px;border-radius:50%;}
+.node-pop{position:absolute;bottom:0;left:0;right:0;z-index:20;
+  background:linear-gradient(transparent,var(--ink1) 18%);
+  padding:40px 20px 16px;transform:translateY(100%);transition:transform .4s ease;}
+.node-pop.open{transform:none;}
+.np-close{position:absolute;top:10px;right:14px;width:32px;height:32px;border-radius:50%;
+  background:var(--mist3);border:none;color:var(--mist2);font-size:18px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.np-name{font-family:var(--serif);font-size:24px;font-weight:300;margin-bottom:4px;}
+.np-meta{font-size:14px;color:var(--mist2);margin-bottom:12px;}
+.np-story{font-family:var(--serif);font-size:15px;font-weight:200;color:var(--mist);line-height:1.9;}
+
+/* ═══ HISTORY PANEL ═══ */
+#p-hist{display:flex;flex-direction:column;}
+.hist-scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;position:relative;padding:12px 0 100px;}
+.hist-scr::-webkit-scrollbar{display:none;}
+.tl-spine{position:absolute;left:76px;top:0;bottom:0;width:1px;
+  background:linear-gradient(var(--mist4),rgba(200,169,110,.18) 40%,rgba(200,169,110,.28) 65%,var(--mist4));}
+.era-hd{padding:8px 18px 5px 96px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.1em;color:var(--mist2);}
+.er{position:relative;display:flex;align-items:flex-start;
+  padding:12px 18px 12px 96px;gap:12px;cursor:pointer;transition:background .2s;}
+.er:hover{background:var(--mist4);}
+.er.fam{background:rgba(200,169,110,.035);}
+.er.peak{padding:20px 18px 20px 96px;}
+.er-yr{position:absolute;left:0;width:72px;text-align:right;padding-right:16px;
+  font-family:var(--mono);font-size:13px;color:var(--mist2);top:15px;line-height:1.3;}
+.er-nd{position:absolute;left:70px;top:18px;width:14px;height:14px;border-radius:50%;}
+.er-nd.fnd{box-shadow:0 0 14px rgba(200,169,110,.5);}
+.er-nd.big{width:18px;height:18px;left:68px;top:16px;}
+.er-body{flex:1;min-width:0;}
+.er-tag{font-size:11px;font-weight:500;letter-spacing:.1em;margin-bottom:4px;}
+.er-ttl{font-family:var(--serif);font-size:17px;font-weight:300;color:var(--cream);
+  line-height:1.5;margin-bottom:4px;}
+.er-desc{font-size:13px;color:var(--mist2);line-height:1.65;}
+.er.fam .er-body{background:rgba(200,169,110,.05);border:1px solid rgba(200,169,110,.1);
+  border-radius:9px;padding:12px 14px;}
+.er.fam .er-ttl{color:var(--gold2);}
+.er.peak .er-body{background:linear-gradient(135deg,rgba(200,169,110,.07),transparent);
+  border:1px solid rgba(200,169,110,.18);border-radius:11px;padding:16px 18px;}
+.er.peak .er-ttl{font-size:19px;color:var(--gold2);margin-bottom:8px;}
+.er.peak .er-desc{font-size:14px;color:var(--mist);line-height:1.8;}
+
+/* ═══ MOMENT ═══ */
+#mo{position:fixed;inset:0;z-index:200;background:var(--night);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 1.2s ease;
+  padding:0 clamp(24px,7vw,56px);text-align:center;overflow-y:auto;}
+#mo.open{opacity:1;pointer-events:all;}
+#mo-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+
+/* 数字——更大更庄重 */
+.mo-n{
+  font-family:var(--mono);
+  font-size:clamp(80px,22vw,130px);
+  font-weight:300;color:var(--cream);line-height:1;
+  opacity:0;transform:scale(.78);
+  transition:opacity 2s ease, transform 2s cubic-bezier(.16,1,.3,1);
+}
+.mo-n.v{opacity:1;transform:scale(1);}
+.mo-u{font-size:15px;color:var(--gold);letter-spacing:.28em;
+  margin:6px 0 clamp(28px,7vw,48px);
+  opacity:0;transition:opacity 1.5s ease 1s;}
+.mo-u.v{opacity:1;}
+.mo-spine{width:1px;height:clamp(60px,16vw,100px);
+  background:linear-gradient(var(--gold),transparent);margin:0 auto clamp(28px,7vw,48px);
+  opacity:0;transition:opacity 1.2s ease .6s;}
+.mo-spine.v{opacity:1;}
+
+/* 三条彩线汇聚 */
+.mo-three{display:flex;gap:clamp(24px,6vw,40px);margin-bottom:clamp(28px,7vw,44px);
+  opacity:0;transition:opacity 1.2s ease 1.5s;}
+.mo-three.v{opacity:1;}
+.mo3-item{display:flex;flex-direction:column;align-items:center;gap:7px;}
+.mo3-line{width:1px;height:clamp(44px,11vw,70px);}
+.mo3-line.geo{background:linear-gradient(var(--teal),transparent);}
+.mo3-line.tree{background:linear-gradient(var(--gold),transparent);}
+.mo3-line.hist{background:linear-gradient(var(--purple),transparent);}
+.mo3-lbl{font-size:12px;letter-spacing:.12em;opacity:.6;}
+.mo3-lbl.geo{color:var(--teal);}
+.mo3-lbl.tree{color:var(--gold);}
+.mo3-lbl.hist{color:var(--purple);}
+
+.mo-q{font-family:var(--serif);font-size:clamp(18px,5vw,26px);font-weight:200;
+  color:var(--cream);line-height:2.1;letter-spacing:.03em;
+  opacity:0;transition:opacity 2s ease;}
+.mo-q.v{opacity:1;}
+.mo-q em{color:var(--gold);font-style:normal;}
+.mo-s{font-family:var(--serif);font-size:clamp(14px,3.5vw,17px);font-weight:200;
+  color:var(--mist2);line-height:2;margin-top:clamp(16px,4vw,24px);
+  opacity:0;transition:opacity 2s ease;}
+.mo-s.v{opacity:1;}
+.mo-s em{color:var(--gold);font-style:normal;}
+.mo-acts{margin-top:clamp(36px,9vw,56px);display:flex;flex-direction:column;
+  align-items:center;gap:12px;opacity:0;transition:opacity 1.2s ease;}
+.mo-acts.v{opacity:1;}
+.mo-share{height:54px;padding:0 44px;border-radius:27px;border:none;
+  background:var(--gold);color:var(--night);font-family:var(--sans);
+  font-size:15px;font-weight:500;letter-spacing:.05em;cursor:pointer;transition:opacity .15s;}
+.mo-share:active{opacity:.82;}
+.mo-back{font-size:13px;color:var(--mist2);cursor:pointer;padding:6px;letter-spacing:.06em;}
+
+/* FAB */
+.fab{position:fixed;bottom:clamp(24px,6vw,40px);right:clamp(18px,5vw,30px);z-index:50;
+  height:52px;padding:0 26px;border-radius:26px;border:none;
+  background:var(--gold);color:var(--night);font-family:var(--sans);
+  font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;
+  box-shadow:0 4px 20px rgba(200,169,110,.22);transition:opacity .4s,transform .4s;}
+.fab:active{opacity:.82;transform:scale(.96);}
+.fab.hide{opacity:0;pointer-events:none;}
+
+/* toast */
+#toast{position:fixed;bottom:clamp(90px,12vw,120px);left:50%;transform:translateX(-50%) translateY(8px);
+  background:rgba(18,16,11,.92);backdrop-filter:blur(16px);
+  border:1px solid var(--mist4);border-radius:20px;
+  padding:10px 22px;font-size:13px;color:var(--cream);
+  white-space:nowrap;opacity:0;transition:all .4s;pointer-events:none;z-index:999;}
+
+#stars-c{position:fixed;inset:0;pointer-events:none;z-index:0;}
+</style>
+</head>
+<body>
+<canvas id="stars-c"></canvas>
+<div id="app">
+
+  <!-- 导航 -->
+  <div class="nav">
+    <div class="nav-logo">寻·根</div>
+    <div class="tabs">
+      <button class="tab active" id="tab-map" onclick="sw('map')">
+        <div class="tab-dot" style="background:var(--teal)"></div>地图
+      </button>
+      <button class="tab" id="tab-tree" onclick="sw('tree')">
+        <div class="tab-dot" style="background:var(--gold)"></div>家族
+      </button>
+      <button class="tab" id="tab-hist" onclick="sw('hist')">
+        <div class="tab-dot" style="background:var(--coral)"></div>历史
+      </button>
+    </div>
+    <div style="width:52px;"></div>
+  </div>
+
+  <!-- 数据统计条 -->
+  <div class="stats">
+    <div class="st"><div class="sn">4</div><div class="sl">代</div></div>
+    <div class="sp"></div>
+    <div class="st"><div class="sn">120</div><div class="sl">年</div></div>
+    <div class="sp"></div>
+    <div class="st"><div class="sn">3</div><div class="sl">座城市</div></div>
+    <div class="sp"></div>
+    <div class="st"><div class="sn">6</div><div class="sl">历史节点</div></div>
+  </div>
+
+  <div class="panels">
+
+    <!-- ══ MAP ══ -->
+    <div class="panel active" id="p-map">
+      <div class="map-wrap">
+        <!-- 加载中占位 -->
+        <div class="map-loading" id="map-loading">
+          <div class="map-loading-dot"></div>
+          <div class="map-loading-txt">地图加载中…</div>
+        </div>
+        <!-- 高德地图容器 -->
+        <div id="amap-container"></div>
+        <!-- 迁徙事件卡片 -->
+        <div class="migration-event" id="migration-event">
+          <div class="event-year" id="event-year"></div>
+          <div class="event-title" id="event-title"></div>
+          <div class="event-desc" id="event-desc"></div>
+        </div>
+        <!-- 城市弹窗 -->
+        <div class="city-pop" id="city-pop">
+          <button class="cp-close" onclick="closeCity()">×</button>
+          <div class="cp-name" id="cp-name"></div>
+          <div class="cp-meta" id="cp-meta"></div>
+          <div class="cp-story" id="cp-story"></div>
+        </div>
+      </div>
+      <div class="map-bot">
+        <div class="map-title" id="map-title">家族迁徙路径 · 三段</div>
+        <div class="chips">
+          <div class="chip on" onclick="fchip(0,this)">
+            <div class="chip-d" style="background:#c8a96e;"></div>双城→北京<span class="chip-y">1960s</span>
+          </div>
+          <div class="chip" onclick="fchip(1,this)">
+            <div class="chip-d" style="background:#e07258;"></div>北京→铁岭<span class="chip-y">1970</span>
+          </div>
+          <div class="chip" onclick="fchip(2,this)">
+            <div class="chip-d" style="background:#3ec9a0;"></div>铁岭→北京<span class="chip-y">1992</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TREE ══ -->
+    <div class="panel" id="p-tree">
+      <div class="tree-wrap">
+        <!-- 节点文字放大：所有 font-size 提升 ~35% -->
+        <svg id="tree-svg" viewBox="0 0 420 500" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <radialGradient id="tg0" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#3ec9a0" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="#3ec9a0" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sb"><feGaussianBlur stdDeviation="5"/></filter>
+          </defs>
+          <rect width="420" height="500" fill="#110f0b"/>
+
+          <!-- 血脉连线 -->
+          <path d="M210,90 C210,126 210,150 210,172" fill="none" stroke="#c8a96e" stroke-width=".8" opacity=".28" stroke-dasharray="4 4"/>
+          <path d="M290,108 C272,135 252,155 232,172" fill="none" stroke="#c8a96e" stroke-width=".7" opacity=".2" stroke-dasharray="4 4"/>
+          <path d="M130,108 C150,135 168,155 184,172" fill="none" stroke="#c8a96e" stroke-width=".7" opacity=".2" stroke-dasharray="4 4"/>
+          <path d="M210,218 C210,252 210,272 210,290" fill="none" stroke="#c8a96e" stroke-width=".9" opacity=".35" stroke-dasharray="5 4"/>
+          <path d="M183,218 C192,252 202,268 208,290" fill="none" stroke="#c8a96e" stroke-width=".7" opacity=".25" stroke-dasharray="5 4"/>
+          <path d="M210,348 C210,372 210,388 210,404" fill="none" stroke="#3ec9a0" stroke-width=".7" opacity=".2" stroke-dasharray="3 5"/>
+
+          <!-- 曾祖（较小，更远代） -->
+          <g onclick="openNode(0)" style="cursor:pointer;" transform="translate(210,58)">
+            <circle r="24" fill="#1a1710" stroke="rgba(200,169,110,.18)" stroke-width="1"/>
+            <text y="-3" text-anchor="middle" font-family="'Noto Serif SC'" font-size="12" fill="rgba(200,169,110,.55)">曾祖</text>
+            <text y="12" text-anchor="middle" font-family="'DM Mono'" font-size="9" fill="rgba(200,169,110,.28)">？</text>
+          </g>
+
+          <!-- 祖父辈 -->
+          <g onclick="openNode(1)" style="cursor:pointer;" transform="translate(104,112)">
+            <circle r="22" fill="#1a1710" stroke="rgba(200,169,110,.13)" stroke-width="1"/>
+            <text y="-3" text-anchor="middle" font-family="'Noto Serif SC'" font-size="12" fill="rgba(200,169,110,.45)">外公</text>
+            <text y="12" text-anchor="middle" font-family="'DM Mono'" font-size="9" fill="rgba(200,169,110,.25)">双城</text>
+          </g>
+          <g onclick="openNode(2)" style="cursor:pointer;" transform="translate(162,107)">
+            <circle r="20" fill="#1a1710" stroke="rgba(200,169,110,.12)" stroke-width="1"/>
+            <text y="-3" text-anchor="middle" font-family="'Noto Serif SC'" font-size="12" fill="rgba(200,169,110,.42)">外婆</text>
+            <text y="12" text-anchor="middle" font-family="'DM Mono'" font-size="9" fill="rgba(200,169,110,.22)">双城</text>
+          </g>
+          <!-- 爷爷——关键人物，突出显示 -->
+          <g onclick="openNode(3)" style="cursor:pointer;" transform="translate(256,98)">
+            <circle r="32" fill="rgba(200,169,110,.07)" stroke="none"/>
+            <circle r="22" fill="#1a1710" stroke="#c8a96e" stroke-width="1.5"/>
+            <text y="-5" text-anchor="middle" font-family="'Noto Serif SC'" font-size="13" fill="#c8a96e">爷爷</text>
+            <text y="11" text-anchor="middle" font-family="'DM Mono'" font-size="10" fill="rgba(200,169,110,.6)">1904</text>
+            <text y="24" text-anchor="middle" font-family="'DM Mono'" font-size="8.5" fill="rgba(200,169,110,.35)">双城·贫农</text>
+          </g>
+          <g onclick="openNode(4)" style="cursor:pointer;" transform="translate(318,112)">
+            <circle r="22" fill="#1a1710" stroke="rgba(200,169,110,.13)" stroke-width="1"/>
+            <text y="-3" text-anchor="middle" font-family="'Noto Serif SC'" font-size="12" fill="rgba(200,169,110,.45)">奶奶</text>
+            <text y="12" text-anchor="middle" font-family="'DM Mono'" font-size="9" fill="rgba(200,169,110,.25)">双城</text>
+          </g>
+
+          <!-- 父母辈 -->
+          <g onclick="openNode(5)" style="cursor:pointer;" transform="translate(172,200)">
+            <circle r="24" fill="#1a1710" stroke="rgba(200,169,110,.18)" stroke-width="1"/>
+            <text y="-4" text-anchor="middle" font-family="'Noto Serif SC'" font-size="13" fill="rgba(200,169,110,.62)">母亲</text>
+            <text y="12" text-anchor="middle" font-family="'DM Mono'" font-size="9" fill="rgba(200,169,110,.32)">哈师大</text>
+          </g>
+          <g onclick="openNode(6)" style="cursor:pointer;" transform="translate(252,196)">
+            <circle r="27" fill="rgba(200,169,110,.06)" stroke="rgba(200,169,110,.32)" stroke-width="1.3"/>
+            <text y="-5" text-anchor="middle" font-family="'Noto Serif SC'" font-size="14" fill="#e8d098">父亲</text>
+            <text y="11" text-anchor="middle" font-family="'DM Mono'" font-size="10" fill="rgba(200,169,110,.5)">清华</text>
+            <text y="24" text-anchor="middle" font-family="'DM Mono'" font-size="8.5" fill="rgba(200,169,110,.3)">1970毕业</text>
+          </g>
+
+          <!-- 你——最突出 -->
+          <g transform="translate(210,318)">
+            <circle r="44" fill="url(#tg0)" filter="url(#sb)"/>
+            <circle r="28" fill="rgba(62,201,160,.08)" stroke="#3ec9a0" stroke-width="1.5"/>
+            <circle r="28" fill="none" stroke="#3ec9a0" stroke-width=".8" opacity=".22">
+              <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="20s" repeatCount="indefinite"/>
+              <animate attributeName="stroke-dasharray" values="6 170;170 6;6 170" dur="5s" repeatCount="indefinite"/>
+            </circle>
+            <circle r="12" fill="#3ec9a0" opacity=".8"/>
+            <circle r="4" fill="#090806"/>
+            <text y="42" text-anchor="middle" font-family="'Noto Serif SC'" font-size="14" fill="#3ec9a0">你</text>
+            <text y="57" text-anchor="middle" font-family="'DM Mono'" font-size="9.5" fill="rgba(62,201,160,.5)">北京·今日</text>
+          </g>
+
+          <!-- 子辈虚线（未来） -->
+          <g transform="translate(210,420)" opacity=".3">
+            <circle r="17" fill="transparent" stroke="#3ec9a0" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <text y="5" text-anchor="middle" font-family="'Noto Serif SC'" font-size="10" fill="#3ec9a0">子辈</text>
+          </g>
+          <text x="232" y="425" font-family="'DM Mono'" font-size="8.5" fill="rgba(62,201,160,.28)">未来</text>
+
+          <!-- 代际轴标签 -->
+          <g opacity=".4">
+            <line x1="44" y1="56" x2="44" y2="432" stroke="rgba(238,232,216,.07)" stroke-width=".5" stroke-dasharray="2 5"/>
+            <text x="40" y="60" text-anchor="end" font-family="'DM Mono'" font-size="9" fill="rgba(238,232,216,.38)">一代</text>
+            <text x="40" y="114" text-anchor="end" font-family="'DM Mono'" font-size="9" fill="rgba(238,232,216,.38)">二代</text>
+            <text x="40" y="204" text-anchor="end" font-family="'DM Mono'" font-size="9" fill="rgba(238,232,216,.38)">三代</text>
+            <text x="40" y="322" text-anchor="end" font-family="'DM Mono'" font-size="9" fill="rgba(62,201,160,.6)">你</text>
+            <text x="40" y="424" text-anchor="end" font-family="'DM Mono'" font-size="9" fill="rgba(238,232,216,.28)">后代</text>
+          </g>
+        </svg>
+
+        <div class="tree-legend">
+          <div class="tl-i"><div class="tl-d" style="background:#c8a96e;"></div>金环·关键人物</div>
+          <div class="tl-i"><div class="tl-d" style="background:#3ec9a0;"></div>青绿·你</div>
+          <div class="tl-i"><div class="tl-d" style="background:rgba(238,232,216,.2);border:1px dashed rgba(62,201,160,.4);"></div>虚线·未来</div>
+        </div>
+
+        <div class="node-pop" id="node-pop">
+          <button class="np-close" onclick="closeNode()">×</button>
+          <div class="np-name" id="np-name"></div>
+          <div class="np-meta" id="np-meta"></div>
+          <div class="np-story" id="np-story"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY ══ -->
+    <div class="panel" id="p-hist">
+      <div class="hist-scr">
+        <div class="tl-spine"></div>
+
+        <div class="era-hd">清末·民初</div>
+
+        <div class="er fam" onclick="showT('爷爷出生，双城县，1904')">
+          <div class="er-yr">1904</div>
+          <div class="er-nd fnd" style="background:#c8a96e;"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--gold)">家族事件</div>
+            <div class="er-ttl">爷爷出生，黑龙江双城县</div>
+            <div class="er-desc">贫农之家，松花江边。没有人知道，这个孩子的孙辈将在北京生活三十年。</div>
+          </div>
+        </div>
+
+        <div class="er">
+          <div class="er-yr" style="color:var(--blue)">1904</div>
+          <div class="er-nd" style="background:var(--blue);"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--blue)">历史事件</div>
+            <div class="er-ttl">日俄战争爆发</div>
+            <div class="er-desc">战火烧过东北大地。他出生的那个春天，炮声在松花江对岸响起。他不知道。</div>
+          </div>
+        </div>
+
+        <div class="era-hd" style="margin-top:8px;">日据时期</div>
+
+        <div class="er peak">
+          <div class="er-yr" style="color:var(--purple)">1931</div>
+          <div class="er-nd big" style="background:var(--purple);"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--purple)">☉ 家族与历史的交汇</div>
+            <div class="er-ttl">九一八事变·爷爷27岁</div>
+            <div class="er-desc">日本占领东北。那一年他27岁，正当壮年。<br>
+              东北沦陷的十四年里，他在双城种地，活下来了。<br><br>
+              <span style="color:var(--gold);opacity:.8;">否则，你不会存在。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="era-hd" style="margin-top:8px;">新中国</div>
+
+        <div class="er fam">
+          <div class="er-yr">1960s</div>
+          <div class="er-nd fnd" style="background:#c8a96e;"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--gold)">家族事件</div>
+            <div class="er-ttl">父亲考入清华大学</div>
+            <div class="er-desc">贫农的儿子，走进了清华园。这是这个家族第一次走进那扇门。</div>
+          </div>
+        </div>
+
+        <div class="er peak">
+          <div class="er-yr" style="color:var(--purple)">1970</div>
+          <div class="er-nd big" style="background:var(--purple);"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--purple)">☉ 家族与历史的交汇</div>
+            <div class="er-ttl">清华毕业·上山下乡运动</div>
+            <div class="er-desc">
+              1970年，大批毕业生被分配至农村。父亲清华毕业，被分配到辽宁铁岭山村。<br><br>
+              他没有选择。他和妻子收拾行李，出发了。<br><br>
+              <span style="color:var(--gold);opacity:.8;">在那个山村里，你出生了。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="er">
+          <div class="er-yr" style="color:var(--blue)">1977</div>
+          <div class="er-nd" style="background:var(--blue);"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--blue)">历史事件</div>
+            <div class="er-ttl">高考恢复</div>
+            <div class="er-desc">知识改变命运的大门重新打开。这道门，最终将通向你离开铁岭的那一天。</div>
+          </div>
+        </div>
+
+        <div class="era-hd" style="margin-top:8px;">今日</div>
+
+        <div class="er fam peak" onclick="openMoment()">
+          <div class="er-yr" style="color:var(--teal)">今日</div>
+          <div class="er-nd big" style="background:var(--teal);box-shadow:0 0 16px rgba(62,201,160,.6);"></div>
+          <div class="er-body">
+            <div class="er-tag" style="color:var(--teal)">你</div>
+            <div class="er-ttl">北京·三十年</div>
+            <div class="er-desc" style="color:var(--mist);">
+              从双城到铁岭到北京。<br>
+              三代人，一百二十年。<br><br>
+              日俄战争、九一八、文化大革命、改革开放——<br>
+              每一次历史剧变，都可能让你不存在。<br><br>
+              <span style="color:var(--teal);opacity:.85;">所有这一切，指向了你。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MOMENT ══ -->
+<div id="mo">
+  <div id="mo-particles"></div>
+  <div style="width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 clamp(22px,6vw,52px);">
+    <div class="mo-n" id="mon">0</div>
+    <div class="mo-u" id="mou">年</div>
+    <div class="mo-spine" id="mos"></div>
+    <div class="mo-three" id="mo3">
+      <div class="mo3-item"><div class="mo3-line geo"></div><div class="mo3-lbl geo">地理</div></div>
+      <div class="mo3-item"><div class="mo3-line tree"></div><div class="mo3-lbl tree">血脉</div></div>
+      <div class="mo3-item"><div class="mo3-line hist"></div><div class="mo3-lbl hist">历史</div></div>
+    </div>
+    <div class="mo-q" id="moq">
+      从1904年的黑龙江双城，<br>
+      到今天你站立的地方。<br><br>
+      <em>每一代人都必须活下来，<br>
+      每一次相遇都不能错过。</em>
+    </div>
+    <div class="mo-s" id="mosub">
+      日俄战争、九一八、抗日战争、文化大革命——<br>
+      他们都经历了，都活下来了。<br><br>
+      任何一次失败，你就不会存在。<br><br>
+      <em>你不是偶然。<br>
+      你是四代人用整个生命共同指向的结果。</em>
+    </div>
+    <div class="mo-acts" id="moa">
+      <button class="mo-share" onclick="showT('正在生成专属海报…')">分享这段家族故事</button>
+      <div class="mo-back" onclick="closeMoment()">← 继续探索三个维度</div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fab" onclick="openMoment()">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+  感受存在的意义
+</button>
+<div id="toast"></div>
+
+<script>
+/* ══ 星粒 ══ */
+(()=>{
+  const c=document.getElementById('stars-c'),ctx=c.getContext('2d');
+  function rs(){c.width=innerWidth;c.height=innerHeight;}rs();window.addEventListener('resize',rs);
+  const ss=Array.from({length:85},()=>({x:Math.random(),y:Math.random(),r:.3+Math.random()*1.3,ph:Math.random()*Math.PI*2,sp:.0007+Math.random()*.0018}));
+  function draw(t){ctx.clearRect(0,0,c.width,c.height);ss.forEach(s=>{const op=.025+(Math.sin(t*s.sp*1000+s.ph)+1)/2*.18;ctx.beginPath();ctx.arc(s.x*c.width,s.y*c.height,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(238,232,216,${op})`;ctx.fill();});requestAnimationFrame(draw);}
+  requestAnimationFrame(draw);
+})();
+
+/* ══ Moment 粒子 ══ */
+(()=>{
+  const p=document.getElementById('mo-particles');
+  const st=document.createElement('style');
+  st.textContent='@keyframes pdrift{0%,100%{transform:translate(0,0);opacity:0;}20%{opacity:var(--po,.15);}80%{opacity:var(--po,.15);}50%{transform:translate(var(--px,20px),var(--py,-55px));}}';
+  document.head.appendChild(st);
+  const cols=['#c8a96e','#3ec9a0','#a890e0'];
+  for(let i=0;i<22;i++){
+    const el=document.createElement('div');const sz=.6+Math.random()*1.8;
+    Object.assign(el.style,{position:'absolute',width:sz+'px',height:sz+'px',borderRadius:'50%',
+      background:cols[Math.floor(Math.random()*3)],left:Math.random()*100+'%',top:Math.random()*100+'%',
+      animation:`pdrift ${9+Math.random()*10}s ease-in-out infinite`,animationDelay:(-Math.random()*10)+'s',
+      '--px':(Math.random()-.5)*90+'px','--py':(-32-Math.random()*70)+'px','--po':.06+Math.random()*.16});
+    p.appendChild(el);
+  }
+})();
+
+/* ══ Tab 切换 ══ */
+function sw(t){
+  ['map','tree','hist'].forEach(id=>{
+    document.getElementById('tab-'+id).classList.toggle('active',id===t);
+    document.getElementById('p-'+id).classList.toggle('active',id===t);
+  });
+  if(t==='map')initMap();
+}
+
+/* ══ 高德地图初始化 ══════════════════════════════════════════
+   迁徙城市数据（WGS84坐标，高德使用GCJ02，此处用高德地名搜索自动转换）
+══════════════════════════════════════════════════════════════ */
+let amapInstance=null, mapInited=false;
+
+const CITIES = [
+  { name:"双城县", lng:126.312, lat:45.374, color:"#c8a96e", label:"起点·1904",
+    story:"爷爷 1904 年生于此，贫农之家，松花江边。" },
+  { name:"北京", lng:116.307, lat:40.003, color:"#3ec9a0", label:"落脚·今日",
+    story:"父亲在这里读完了清华；你在这里工作生活了三十年。" },
+  { name:"铁岭", lng:123.844, lat:42.223, color:"#e07258", label:"中转·1970",
+    story:"父母被分配到这里的一个山村，你在这里出生长大。" },
+];
+
+// 路径定义（出发索引→目的地索引）- 添加事件描述
+const ROUTES = [
+  { from:0, to:1, color:'#c8a96e', width:3, label:'求学·1960s', year:'1960s', event:'父亲考入清华大学', desc:'贫农的儿子，走进了清华园。这是家族第一次走进那扇门。' },
+  { from:1, to:2, color:'#e07258', width:3, label:'政策分配·1970', year:'1970', event:'毕业分配下乡', desc:'清华毕业，被分配到辽宁铁岭山村。他没有选择，收拾行李出发了。' },
+  { from:2, to:1, color:'#3ec9a0', width:4, label:'自主定居·1992', year:'1992', event:'返回北京工作', desc:'你从铁岭来到北京，在这里工作生活了三十年。' },
+];
+
+function initMap(){
+  console.log('[initMap] 开始执行，mapInited:', mapInited);
+  if(mapInited)return;
+  document.getElementById('amap-container').style.cssText='width:100%;height:100%;';
+
+  AMapLoader.load({
+    key: 'b05662825818663084ef068e06bf9744',        /* ← 替换：Web端(JS API)类型的Key */
+    version: '2.0',
+    plugins: ['AMap.Geocoder'],
+    // Nginx 代理：所有地图瓦片/样式请求经 f.aifeisu.cn 转发，jscode 由服务器注入
+    serviceHost: 'https://f.aifeisu.cn/_AMapService',
+  }).then(AMap=>{
+    console.log('[AMapLoader] 地图加载成功，AMap 对象:', AMap ? '存在' : 'null');
+    // 深色地图样式（接近产品主题）
+    console.log('[AMap] 开始创建地图实例');
+    amapInstance = new AMap.Map('amap-container', {
+      zoom: 5,
+      center: [118, 40],          // 中国中部初始视野
+      mapStyle: 'amap://styles/dark',  // 高德暗色主题
+      features: ['bg','road','building','point'],
+    });
+
+    document.getElementById('map-loading').style.display='none';
+
+    // 直接使用 CITIES 中的坐标创建地图元素
+    console.log('[AMap] 地图实例已创建');
+
+    // 将 CITIES 坐标转换为 AMap.LngLat 对象
+    const coords = CITIES.map(city => {
+      console.log('[initMap] 使用城市坐标:', city.name, 'lng:', city.lng, 'lat:', city.lat);
+      return new AMap.LngLat(city.lng, city.lat);
+    });
+
+    console.log('[initMap] 所有坐标已准备，调用 drawMapElements');
+    drawMapElements(AMap, coords);
+
+  }).catch(err=>{
+    console.warn('[AMap] 加载失败，显示备用SVG地图:', err);
+    document.getElementById('map-loading').innerHTML=
+      '<div style="font-size:12px;color:rgba(238,232,216,.3);padding:20px;text-align:center;">地图加载需要有效的高德 API Key<br>请在文件头部替换 YOUR_AMAP_JS_KEY</div>';
+    mapInited=true;
+  });
+
+}
+
+function drawMapElements(AMap, coords){
+  console.log('[drawMapElements] 开始执行，coords:', coords);
+
+  // 先调整视野，地图稳定后再开始动画
+  const validCoords = coords.filter(Boolean);
+  if(validCoords.length > 1){
+    amapInstance.setFitView();
+  }
+
+  // 等地图视野稳定后开始序列动画
+  console.log('[drawMapElements] 地图视野已调整，1200ms 后开始序列动画');
+  setTimeout(()=> startSequence(AMap, coords), 1200);
+}
+
+function startSequence(AMap, coords){
+  console.log('[startSequence] 开始执行，coords 数量:', coords.length);
+
+  // ── 预先创建所有路径（全透明），收集到数组 ──────────────
+  const polylines = ROUTES.map(route => {
+    const fromPos = coords[route.from];
+    const toPos   = coords[route.to];
+    if(!fromPos || !toPos) return null;
+
+    const midLng = (fromPos.getLng() + toPos.getLng()) / 2;
+    const midLat = (fromPos.getLat() + toPos.getLat()) / 2 + 3.5;
+    const pts    = bezierPoints(fromPos, {lng:midLng, lat:midLat}, toPos, 80);
+
+    const pl = new AMap.Polyline({
+      path:          pts,
+      strokeColor:   route.color,
+      strokeWeight:  route.width,
+      strokeOpacity: 0,
+      strokeStyle:   'solid',
+      lineJoin:      'round',
+      lineCap:       'round',
+    });
+    pl.setMap(amapInstance);
+    return pl;
+  });
+
+  // ── 预先创建所有标记（全透明） ───────────────────────────
+  const markers = CITIES.map((city, idx) => {
+    const pos   = coords[idx];
+    if(!pos) return null;
+
+    // 注入脉冲动画 keyframe
+    if(!document.getElementById('mk-style')){
+      const st = document.createElement('style');
+      st.id    = 'mk-style';
+      st.textContent = `
+        @keyframes mkPulse{0%,100%{box-shadow:0 0 12px #3ec9a066;}50%{box-shadow:0 0 32px #3ec9a0cc;}}
+        @keyframes mkFadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+      `;
+      document.head.appendChild(st);
+    }
+
+    const isMain = idx === 1; // 北京
+    const wrap   = document.createElement('div');
+    wrap.style.cssText = `
+      opacity:0;
+      display:flex;flex-direction:column;align-items:center;gap:6px;
+      cursor:pointer;transition:opacity .8s ease;
+    `;
+    wrap.innerHTML = `
+      <div style="
+        width:${isMain?22:15}px;height:${isMain?22:15}px;border-radius:50%;
+        background:${city.color};
+        border:2.5px solid rgba(9,8,6,.85);
+        box-shadow:0 0 ${isMain?22:13}px ${city.color}77;
+        ${isMain ? 'animation:mkPulse 3.5s ease-in-out infinite;' : ''}
+      "></div>
+      <div style="
+        background:rgba(9,8,6,.85);
+        border:1px solid ${city.color}55;
+        border-radius:9px;padding:5px 12px;
+        white-space:nowrap;
+      ">
+        <div style="font-family:'Noto Serif SC';font-size:${isMain?18:15}px;
+          color:${city.color};margin-bottom:3px;letter-spacing:.04em;">${city.name}</div>
+        <div style="font-family:'DM Mono';font-size:11px;
+          color:rgba(238,232,216,.45);">${city.label}</div>
+      </div>
+    `;
+
+    const marker = new AMap.Marker({
+      position: pos,
+      content:  wrap,
+      anchor:   'bottom-center',
+    });
+    marker.setMap(amapInstance);
+    marker.on('click', ()=> selCity(idx));
+    return { marker, wrap };
+  });
+
+  // ── 序列动画：每段路径 + 对应标记依次出现 ────────────────
+  // 节奏：起点出现 → 路径1画出 → 路径2画出 → 路径3画出 → 终点脉冲
+  const SEQ = [
+    // [delay_ms, action]
+    [0,    ()=> fadeMarker(markers[0])],          // 双城出现
+    [1800, ()=> showEvent(0)],
+    [2000, ()=> drawPolyline(polylines[0], 3500)],// 路径1开始画（3.5s画完）
+    [5800, ()=> fadeMarker(markers[1])],          // 北京出现（路径1结束后）
+    [7000, ()=> showEvent(1)],
+    [7200, ()=> drawPolyline(polylines[1], 3000)],// 路径2开始画
+    [10200,()=> fadeMarker(markers[2])],          // 铁岭出现
+    [11500, ()=> showEvent(2)],
+    [11700, ()=> drawPolyline(polylines[2], 3000)],// 路径3回北京
+  ];
+
+  SEQ.forEach(([delay, fn]) => setTimeout(fn, delay));
+}
+
+// 标记淡入
+function fadeMarker(m){
+  console.log('[fadeMarker] 执行，marker:', m ? '存在' : 'null');
+  if(!m || !m.wrap) return;
+  m.wrap.style.opacity = '1';
+}
+
+// 显示迁徙事件
+function showEvent(routeIndex){
+  console.log('[showEvent] 执行，routeIndex:', routeIndex);
+  const route = ROUTES[routeIndex];
+  if(!route) return;
+  const eventEl = document.getElementById('migration-event');
+  if(!eventEl) return;
+  document.getElementById('event-year').textContent = route.year;
+  document.getElementById('event-title').textContent = route.event;
+  document.getElementById('event-desc').textContent = route.desc;
+  eventEl.classList.add('visible');
+  setTimeout(() => { eventEl.classList.remove('visible'); }, 4000);
+}
+
+// 路径逐帧描绘（stroke-dashoffset 动画模拟 draw-on 效果）
+function drawPolyline(pl, duration){
+  console.log('[drawPolyline] 执行，pl:', pl ? '存在' : 'null', 'duration:', duration);
+  if(!pl) return;
+  // 高德 Polyline 不支持 CSS animation，用 opacity 淡入 + 伪绘制
+  // 方法：先让线出现（opacity 1），然后用分段追加模拟描绘
+  const totalPts = pl.getPath();            // 获取所有坐标点
+  const steps    = totalPts.length;
+  const interval = duration / steps;
+  let   drawn    = 1;
+
+  // 先只显示第一个点
+  pl.setPath([totalPts[0]]);
+  pl.setOptions({ strokeOpacity: 0.9 });
+
+  const timer = setInterval(()=>{
+    drawn = Math.min(drawn + 2, steps);     // 每帧追加2个点，速度均匀
+    pl.setPath(totalPts.slice(0, drawn));
+    if(drawn >= steps) clearInterval(timer);
+  }, interval * 2);
+}
+
+// 二次贝塞尔曲线采样
+function bezierPoints(p0, p1, p2, steps){
+  const pts=[];
+  for(let i=0;i<=steps;i++){
+    const t=i/steps, mt=1-t;
+    pts.push([
+      mt*mt*p0.getLng()+2*mt*t*p1.lng+t*t*p2.getLng(),
+      mt*mt*p0.getLat()+2*mt*t*p1.lat+t*t*p2.getLat(),
+    ]);
+  }
+  return pts;
+}
+
+// 切换到地图 tab 时初始化
+
+/* ══ chip 点击 ══ */
+function fchip(i,el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  const t=['父亲·1960年代 双城→北京清华','父母·1970 北京→辽宁铁岭山村','本人·1992 铁岭→北京定居'];
+  document.getElementById('map-title').textContent=t[i];
+  // 同时飞到对应路径中点
+  if(amapInstance){
+    const views=[[48,118,41],[5,[123,41]],[5,[120,40]]];
+    if(i===0) amapInstance.setZoomAndCenter(5,[121,43]);
+    if(i===1) amapInstance.setZoomAndCenter(6,[120,41]);
+    if(i===2) amapInstance.setZoomAndCenter(6,[120,41]);
+  }
+}
+
+/* ══ 城市弹窗 ══ */
+const cityD=[
+  {n:'双城县',m:'黑龙江省·起点·1904',s:'爷爷1904年生于此，贫农之家，松花江边。他一生未曾离开这里，但他的子孙走向了远方。'},
+  {n:'北京',m:'首都·落脚地·三十年',s:'父亲在这里读完了清华；你在这里工作生活了三十年。两代人，在同一座城市，因不同的原因。'},
+  {n:'铁岭',m:'辽宁省·中转地·1970',s:'父母被分配到这里的一个山村，你在这里出生长大。这是时代给你的家族留下的印记。'},
+];
+function selCity(i){
+  const d=cityD[i];
+  document.getElementById('cp-name').textContent=d.n;
+  document.getElementById('cp-meta').textContent=d.m;
+  document.getElementById('cp-story').textContent=d.s;
+  document.getElementById('city-pop').classList.add('open');
+}
+function closeCity(){document.getElementById('city-pop').classList.remove('open');}
+
+/* ══ 节点弹窗 ══ */
+const nodeD=[
+  {n:'曾祖父',m:'生卒年不详·双城县',s:'记忆的最远处。我们不知道他的名字，不知道他的样子。但他存在过——你就是证明。'},
+  {n:'外公',m:'生于双城县',s:''},
+  {n:'外婆',m:'生于双城县',s:''},
+  {n:'爷爷',m:'1904年生·双城县·贫农',s:'他种地，养蚕，生了几个孩子。他不知道，他的孙子有一天会在北京生活三十年。'},
+  {n:'奶奶',m:'生于双城县',s:''},
+  {n:'母亲',m:'生于双城县·哈尔滨师范大学',s:'从双城走出来的女孩，在哈尔滨读了大学，遇见了同样从双城走出来的父亲。'},
+  {n:'父亲',m:'生于双城县·清华大学·1970年毕业',s:'贫农之子，考上了清华大学。1970年毕业，被分配到辽宁铁岭山村。他一定有过很多话没有说出口。'},
+];
+function openNode(i){
+  const d=nodeD[i];if(!d||!d.s)return;
+  document.getElementById('np-name').textContent=d.n;
+  document.getElementById('np-meta').textContent=d.m;
+  document.getElementById('np-story').textContent=d.s;
+  document.getElementById('node-pop').classList.add('open');
+}
+function closeNode(){document.getElementById('node-pop').classList.remove('open');}
+
+/* ══ Moment 开启（动画全部慢 5 倍）══ */
+function openMoment(){
+  document.getElementById('mo').classList.add('open');
+  document.getElementById('fab').classList.add('hide');
+  setTimeout(()=>{
+    // 数字计数：从0数到120，耗时 9s（原1.8s × 5）
+    const mn=document.getElementById('mon');mn.classList.add('v');
+    let n=0;const t0=Date.now();const dur=9000;
+    (function tick(){
+      const p=Math.min((Date.now()-t0)/dur,1);
+      mn.textContent=Math.round((1-Math.pow(1-p,3))*120);
+      if(p<1)requestAnimationFrame(tick);
+    })();
+    // 各元素延迟出现（全部 × 5）
+    setTimeout(()=>document.getElementById('mou').classList.add('v'), 2000);   // 原400→2000
+    setTimeout(()=>document.getElementById('mos').classList.add('v'), 3500);   // 原700→3500
+    setTimeout(()=>document.getElementById('mo3').classList.add('v'), 5000);   // 新增三线
+    setTimeout(()=>document.getElementById('moq').classList.add('v'), 7000);   // 原1350→7000
+    setTimeout(()=>document.getElementById('mosub').classList.add('v'),16000); // 原3100→16000
+    setTimeout(()=>document.getElementById('moa').classList.add('v'), 24000);  // 原5200→24000
+  },600);
+}
+
+function closeMoment(){
+  const mo=document.getElementById('mo');mo.classList.remove('open');
+  document.getElementById('fab').classList.remove('hide');
+  ['mon','mou','mos','mo3','moq','mosub','moa'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('v');}
+  });
+  document.getElementById('mon').textContent='0';
+}
+
+/* ══ Toast ══ */
+function showT(m){
+  const el=document.getElementById('toast');
+  el.textContent=m;el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(-50%) translateY(8px)';},2200);
+}
+
+// 页面加载时自动初始化地图（因为默认 Tab 就是地图）
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    console.log('[init] 页面加载完成，开始初始化地图...');
+    initMap();
+  }, 100);
+});
+</script>
+</body>
+</html>

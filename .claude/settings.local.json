@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3005/)",
+      "Bash(perl:*)",
+      "Bash(curl -s http://localhost:3005/xungen_v3.html)"
+    ]
+  }
+}

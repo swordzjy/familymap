@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>家族迁徙 · 寻根</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --night:#090806;--ink0:#110f0b;--ink1:#1a1710;--ink2:#232018;
+  --gold:#c8a96e;--gold2:#e8d098;--cream:#eee8d8;
+  --mist:rgba(238,232,216,0.5);--mist2:rgba(238,232,216,0.25);
+  --mist3:rgba(238,232,216,0.1);--mist4:rgba(238,232,216,0.05);
+  --serif:'Noto Serif SC',serif;--mono:'DM Mono',monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
+  color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+
+/* 顶部导航栏 */
+.nav-bar{
+  position:absolute;top:0;left:0;right:0;z-index:100;
+  padding:calc(8px + env(safe-area-inset-top)) 16px 8px;
+  background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--mist4);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nav-title{
+  font-family:var(--serif);font-size:17px;font-weight:400;
+  color:var(--cream);letter-spacing:0.05em;
+}
+.nav-action{
+  font-size:13px;color:var(--gold);text-decoration:none;
+  padding:6px 12px;border:1px solid var(--mist4);
+  border-radius:16px;background:rgba(200,169,110,0.1);
+}
+
+/* 聊天容器 */
+.chat-container{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
+  padding-top:calc(50px + env(safe-area-inset-top));
+  padding-bottom:calc(80px + env(safe-area-inset-bottom));
+}
+
+/* 消息列表 */
+.messages{
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:16px 12px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.messages::-webkit-scrollbar{display:none;}
+
+/* 消息气泡 */
+.message{
+  max-width:85%;animation:msgIn 0.3s ease;
+}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+.message.ai{align-self:flex-start;}
+.message.user{align-self:flex-end;}
+
+.message.ai .bubble{
+  background:var(--ink1);border:1px solid var(--mist4);
+  border-radius:16px 16px 16px 4px;
+  padding:12px 14px;
+}
+.message.user .bubble{
+  background:var(--gold);color:var(--night);
+  border-radius:16px 16px 4px 16px;
+  padding:12px 14px;font-weight:500;
+}
+
+.message .bubble{
+  font-size:15px;line-height:1.6;
+}
+.message .bubble p{margin-bottom:8px;}
+.message .bubble p:last-child{margin-bottom:0;}
+
+/* 引导式问题卡片 */
+.guidance-cards{
+  padding:0 12px 12px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.guidance-title{
+  font-size:12px;color:var(--mist2);
+  text-align:center;margin-bottom:4px;
+  font-family:var(--mono);
+}
+.guidance-card{
+  background:var(--ink1);border:1px solid var(--mist4);
+  border-radius:12px;
+  padding:12px 14px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.guidance-card:active{
+  background:var(--ink2);border-color:var(--gold);
+}
+.guidance-card .gc-question{
+  font-size:14px;color:var(--cream);margin-bottom:6px;
+  font-family:var(--serif);font-weight:300;
+}
+.guidance-card .gc-hint{
+  font-size:11px;color:var(--mist2);
+  line-height:1.5;
+}
+
+/* 输入区域 */
+.input-area{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:10px 12px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
+  border-top:1px solid var(--mist4);
+  display:flex;gap:8px;align-items:flex-end;
+}
+.input-wrapper{
+  flex:1;position:relative;
+}
+#chat-input{
+  width:100%;max-height:100px;
+  background:var(--ink1);border:1px solid var(--mist4);
+  border-radius:18px;
+  padding:10px 14px;
+  color:var(--cream);font-size:15px;
+  font-family:var(--sans);resize:none;
+  outline:none;transition:border-color 0.2s;
+}
+#chat-input:focus{border-color:var(--gold);}
+#chat-input::placeholder{color:var(--mist2);}
+.send-btn{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--gold);border:none;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;
+  transition:transform 0.1s;
+}
+.send-btn:active{transform:scale(0.92);}
+.send-btn svg{
+  width:18px;height:18px;stroke:var(--night);
+  stroke-width:2.5;fill:none;
+}
+
+/* 加载状态 */
+.typing-indicator{
+  display:flex;gap:4px;padding:8px 12px;
+}
+.typing-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--mist2);
+  animation:typing 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2){animation-delay:0.2s;}
+.typing-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typing{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
+
+/* 地图预览卡片 */
+.map-preview{
+  background:var(--ink1);border:1px solid var(--mist4);
+  border-radius:12px;padding:12px;
+  margin-top:8px;
+}
+.map-preview-title{
+  font-family:var(--serif);font-size:14px;color:var(--cream);
+  margin-bottom:6px;
+}
+.map-preview-btn{
+  display:inline-block;
+  padding:8px 16px;
+  background:rgba(200,169,110,0.15);
+  border:1px solid var(--gold);
+  border-radius:8px;
+  color:var(--gold);font-size:13px;
+  text-decoration:none;
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="nav-bar">
+  <div class="nav-title">寻根</div>
+  <div style="display:flex;gap:8px;">
+    <a href="#" onclick="resetChat();return false;" class="nav-action" style="font-size:12px;padding:6px 10px;">重新开始</a>
+    <a href="/mobile.html" class="nav-action">查看地图 →</a>
+  </div>
+</div>
+
+<!-- 聊天容器 -->
+<div class="chat-container">
+  <!-- 消息列表 -->
+  <div class="messages" id="messages">
+    <div class="message ai">
+      <div class="bubble">
+        <p>你好，我来帮你记录你的家族故事。</p>
+        <p>先说说你自己吧——<strong>你现在住在哪里？</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引导式问题卡片 -->
+  <div class="guidance-cards" id="guidance-cards">
+    <div class="guidance-title">你可以这样回答</div>
+    <div class="guidance-card" onclick="useGuidance(this)" data-text="我住在北京市朝阳区。">
+      <div class="gc-question">我住在北京市朝阳区。</div>
+      <div class="gc-hint">直接告诉我你现在的居住地</div>
+    </div>
+    <div class="guidance-card" onclick="useGuidance(this)" data-text="我家在北方，具体是北京。">
+      <div class="gc-question">我家在北方，具体是北京。</div>
+      <div class="gc-hint">简单描述地理位置</div>
+    </div>
+    <div class="guidance-card" onclick="useGuidance(this)" data-text="我想先聊聊我父亲的经历。">
+      <div class="gc-question">我想先聊聊我父亲的经历。</div>
+      <div class="gc-hint">从你想讲的家人开始</div>
+    </div>
+  </div>
+
+  <!-- 输入区域 -->
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea id="chat-input" placeholder="用你自己的方式描述..." rows="1"></textarea>
+    </div>
+    <button class="send-btn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24">
+        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/amapapi';
+const STORAGE_KEY = 'family_migration_chat_state';
+
+// 从 localStorage 加载状态
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state.familyId = parsed.familyId || null;
+      state.messages = parsed.messages || [];
+      state.isInfoComplete = parsed.isInfoComplete || false;
+      return parsed;
+    }
+  } catch (e) {
+    console.warn('加载状态失败:', e);
+  }
+  return null;
+}
+
+// 保存状态到 localStorage
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      familyId: state.familyId,
+      messages: state.messages,
+      isInfoComplete: state.isInfoComplete,
+    }));
+  } catch (e) {
+    console.warn('保存状态失败:', e);
+  }
+}
+
+// 清除状态（用户需要时）
+function clearState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {}
+}
+
+const state = {
+  messages: [],
+  familyId: null,
+  isInfoComplete: false,
+  mapData: null,
+  isWaiting: false,
+};
+
+// 页面加载时恢复状态和聊天记录
+const savedState = loadState();
+if (savedState && savedState.messages.length > 0) {
+  // 清空初始欢迎消息
+  document.getElementById('messages').innerHTML = '';
+  // 恢复历史消息
+  savedState.messages.forEach(msg => {
+    addMessage(msg.content, msg.role === 'assistant' ? 'ai' : 'user');
+  });
+  // 隐藏引导卡片（已有历史对话）
+  document.getElementById('guidance-cards').style.display = 'none';
+  // 如果已完成，显示地图预览
+  if (savedState.isInfoComplete) {
+    showMapPreview();
+  }
+}
+
+// 自动调整输入框高度
+const inputEl = document.getElementById('chat-input');
+inputEl.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+});
+
+// 发送消息
+function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  // 添加用户消息到 UI
+  addMessage(text, 'user');
+  // 添加到状态
+  state.messages.push({ role: 'user', content: text });
+  saveState();
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  // 隐藏引导卡片
+  document.getElementById('guidance-cards').style.display = 'none';
+
+  // 调用 API
+  callAPI(text);
+}
+
+// 使用引导式问题
+function useGuidance(card) {
+  const text = card.dataset.text;
+  inputEl.value = text;
+  sendMessage();
+}
+
+// 添加消息到聊天
+function addMessage(text, type) {
+  const messagesEl = document.getElementById('messages');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${type}`;
+  msgDiv.innerHTML = `<div class="bubble">${text}</div>`;
+  messagesEl.appendChild(msgDiv);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return msgDiv;
+}
+
+// 显示 AI 输入中
+function showTyping() {
+  const messagesEl = document.getElementById('messages');
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'message ai';
+  typingDiv.id = 'typing-indicator';
+  typingDiv.innerHTML = `
+    <div class="bubble" style="background:transparent;border:none;padding:8px 12px;">
+      <div class="typing-indicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>
+  `;
+  messagesEl.appendChild(typingDiv);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// 隐藏 AI 输入中
+function hideTyping() {
+  const typingEl = document.getElementById('typing-indicator');
+  if (typingEl) typingEl.remove();
+}
+
+// 调用后端 API（SSE 流式响应）
+async function callAPI(text) {
+  showTyping();
+
+  try {
+    // 构建 messages 数组（包含历史消息）
+    const messagesPayload = state.messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+    // 添加当前用户消息
+    messagesPayload.push({ role: 'user', content: text });
+
+    const response = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        messages: messagesPayload,
+        familyId: state.familyId,
+      }),
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let aiContent = '';
+    let aiDiv = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const data = JSON.parse(line.slice(5));
+
+          if (data.type === 'text') {
+            aiContent += data.content;
+            hideTyping();
+            if (!aiDiv) {
+              // 第一次收到内容，创建消息
+              aiDiv = addMessage(aiContent.replace(/\n/g, '<br>'), 'ai');
+            } else {
+              // 更新已有消息
+              aiDiv.querySelector('.bubble').innerHTML = aiContent.replace(/\n/g, '<br>');
+            }
+            // 滚动到底部
+            const messagesEl = document.getElementById('messages');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+
+          if (data.type === 'done') {
+            if (data.familyId) state.familyId = data.familyId;
+            // 将 AI 回复添加到状态
+            state.messages.push({ role: 'assistant', content: aiContent });
+            saveState();
+            if (data.isComplete) {
+              state.isInfoComplete = true;
+              showMapPreview();
+            }
+          }
+        } catch (e) {
+          console.warn('SSE 解析失败:', e);
+        }
+      }
+    }
+
+  } catch (e) {
+    console.error('API 调用失败:', e);
+    hideTyping();
+    addMessage('抱歉，连接失败了。请检查网络后重试。', 'ai');
+  }
+}
+
+// 显示地图预览
+function showMapPreview() {
+  const messagesEl = document.getElementById('messages');
+  const previewDiv = document.createElement('div');
+  previewDiv.className = 'message ai';
+  previewDiv.innerHTML = `
+    <div class="bubble">
+      <p>你的家族故事已经整理好了！</p>
+      <div class="map-preview">
+        <div class="map-preview-title">家族迁徙地图已生成</div>
+        <a href="/mobile.html" class="map-preview-btn">查看迁徙地图 →</a>
+      </div>
+    </div>
+  `;
+  messagesEl.appendChild(previewDiv);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// 更新引导卡片
+function updateGuidanceCards(questions) {
+  const container = document.getElementById('guidance-cards');
+  container.style.display = 'flex';
+
+  const title = container.querySelector('.guidance-title');
+  title.textContent = '接下来你可以问';
+
+  // 移除旧卡片
+  container.querySelectorAll('.guidance-card').forEach(c => c.remove());
+
+  questions.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'guidance-card';
+    card.onclick = () => useGuidance(card);
+    card.dataset.text = q;
+    card.innerHTML = `
+      <div class="gc-question">${q}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// 回车发送（不带 Shift）
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// 重置聊天
+function resetChat() {
+  if (!confirm('确定要清除所有聊天记录并重新开始吗？')) return;
+  clearState();
+  location.reload();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "wangzu",
+  "version": "1.0.0",
+  "description": "项目简介\n\n这是一个基于 Node.js 和 Express 的后端服务器，提供与高德地图 API 和 Anthropic AI 模型交互的接口。它支持处理来自前端的请求，调用高德地图服务获取地理信息，并使用 Anthropic 的 AI 模型生成智能响应。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "amp": "^0.1.0",
+    "axios": "^1.13.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.16.4",
+    "pg": "^8.10.0"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "keywords": [
+    "wangzu",
+    "claude",
+    "ai",
+    "map",
+    "gaode" 
+   
+  ],
+  "author": "swordzjy2026",
+  "license": "MIT"
+}

@@ -1,0 +1,677 @@
+// ============================================================
+// 家族迁徙平台 · 后端 API  [调试增强版]
+// ============================================================
+
+const express = require('express');
+const cors    = require('cors');
+const { Pool } = require('pg');
+const Anthropic = require('@anthropic-ai/sdk');
+const axios   = require('axios');
+require('dotenv').config();
+
+// ============================================================
+// 彩色日志工具（不需要额外依赖）
+// ============================================================
+const C = {
+  reset:  '\x1b[0m',
+  gray:   '\x1b[90m',
+  green:  '\x1b[32m',
+  yellow: '\x1b[33m',
+  red:    '\x1b[31m',
+  cyan:   '\x1b[36m',
+  blue:   '\x1b[34m',
+  bold:   '\x1b[1m',
+};
+
+function ts() {
+  return C.gray + new Date().toTimeString().slice(0, 8) + C.reset;
+}
+
+const log = {
+  info:    (...a) => console.log(ts(), C.cyan  + '[INFO]'  + C.reset, ...a),
+  ok:      (...a) => console.log(ts(), C.green + '[OK]'    + C.reset, ...a),
+  warn:    (...a) => console.log(ts(), C.yellow+ '[WARN]'  + C.reset, ...a),
+  error:   (...a) => console.error(ts(), C.red + '[ERROR]' + C.reset, ...a),
+  db:      (...a) => console.log(ts(), C.blue  + '[DB]'    + C.reset, ...a),
+  ai:      (...a) => console.log(ts(), C.blue  + '[AI]'    + C.reset, ...a),
+  req:     (...a) => console.log(ts(), C.bold  + '[REQ]'   + C.reset, ...a),
+  stream:  (...a) => process.stdout.write(C.gray + a.join('') + C.reset),
+};
+
+// ============================================================
+// Express 初始化
+// ============================================================
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static('../frontend/public'));
+
+// 全局请求日志中间件
+app.use((req, _res, next) => {
+  log.req(`${req.method} ${req.path}`, req.body ? JSON.stringify(req.body).slice(0, 120) : '');
+  next();
+});
+
+// ============================================================
+// 数据库连接 + 启动验证
+// ============================================================
+const db = new Pool({
+  host:     process.env.DB_HOST     || 'localhost',
+  port:     process.env.DB_PORT     || 5432,
+  database: process.env.DB_NAME     || 'family_migration',
+  user:     process.env.DB_USER     || 'aifeisu',
+  password: process.env.DB_PASSWORD || 'afei123',
+});
+
+db.on('error', (err) => {
+  log.error('PostgreSQL 连接池异常:', err.message);
+});
+
+async function checkDB() {
+  try {
+    const r = await db.query('SELECT NOW() as now, current_database() as db');
+    log.ok(`数据库连接成功 → ${r.rows[0].db}  时间: ${r.rows[0].now}`);
+
+    // 验证核心表是否存在
+    const tables = await db.query(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `);
+    const names = tables.rows.map(r => r.table_name);
+    log.db('已有表:', names.join(', '));
+
+    const required = ['family_profiles', 'persons', 'migrations', 'places',
+                      'historical_events', 'story_chapters'];
+    const missing = required.filter(t => !names.includes(t));
+    if (missing.length > 0) {
+      log.warn('⚠ 缺少表:', missing.join(', '), '→ 请执行 sql/schema.sql');
+    } else {
+      log.ok('所有必需表已就绪');
+    }
+
+    // 验证历史事件预置数据
+    const evtCount = await db.query('SELECT COUNT(*) FROM historical_events');
+    log.db(`历史事件预置数据: ${evtCount.rows[0].count} 条`);
+
+  } catch (err) {
+    log.error('数据库连接失败:', err.message);
+    log.error('请检查 .env 中的 DB_HOST / DB_NAME / DB_USER / DB_PASSWORD');
+  }
+}
+
+// ============================================================
+// AI 客户端（阿里云 DashScope 兼容 Anthropic SDK）
+// ============================================================
+const anthropic = new Anthropic({
+  apiKey:  process.env.DASHSCOPE_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL,
+});
+
+// 启动时验证 AI 配置
+function checkAI() {
+  const key = process.env.DASHSCOPE_API_KEY;
+  const url = process.env.ANTHROPIC_BASE_URL;
+  if (!key) {
+    log.warn('⚠ DASHSCOPE_API_KEY 未设置');
+  } else {
+    log.ok(`AI Key: ${key.slice(0, 8)}...${key.slice(-4)}`);
+  }
+  log.ok(`AI BaseURL: ${url || '(未设置，使用 Anthropic 默认)'}`);
+}
+
+// 统一模型名——DashScope 用 qwen-plus，extract/story 也改为 qwen
+const QWEN_MODEL       = process.env.QWEN_MODEL       || 'qwen3.5-plus';
+const QWEN_MODEL_HEAVY = process.env.QWEN_MODEL_HEAVY || 'qwen3-max-2026-01-23';   // extract/story 用更强的模型
+
+// ============================================================
+// 高德地图
+// ============================================================
+const { AmapClient } = require('./amap');
+const amapClient = new AmapClient(
+  process.env.AMAP_KEY,
+  process.env.AMAP_JSCODE
+);
+
+function checkAmap() {
+  if (!process.env.AMAP_KEY) {
+    log.warn('⚠ AMAP_KEY 未设置，地理编码将使用 FALLBACK_COORDS');
+  } else {
+    log.ok(`高德 Key: ${process.env.AMAP_KEY.slice(0, 6)}...`);
+  }
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+
+const FALLBACK_COORDS = {
+  '黑龙江省双城县': { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
+  '哈尔滨':         { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
+  '北京':           { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
+  '北京市':         { longitude: 116.407, latitude: 39.904, normalized_name: '北京市' },
+  '辽宁省铁岭县':   { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+  '铁岭':           { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
+};
+
+async function geocodePlace(placeName) {
+  if (!placeName) return null;
+
+  // 1. 数据库缓存
+  try {
+    const cached = await db.query(
+      'SELECT longitude, latitude, normalized_name FROM places WHERE raw_name = $1',
+      [placeName]
+    );
+    if (cached.rows.length > 0) {
+      log.db(`地名缓存命中: ${placeName} → ${cached.rows[0].longitude}, ${cached.rows[0].latitude}`);
+      return cached.rows[0];
+    }
+  } catch (dbErr) {
+    log.warn(`地名缓存查询失败 (${placeName}):`, dbErr.message);
+  }
+
+  // 2. 高德 API
+  log.info(`调用高德地理编码: "${placeName}"`);
+  const geo = await amapClient.geocode(placeName);
+
+  if (!geo) {
+    const fallback = FALLBACK_COORDS[placeName];
+    if (fallback) {
+      log.warn(`高德失败，使用 FALLBACK: ${placeName} → ${fallback.longitude}, ${fallback.latitude}`);
+      return fallback;
+    }
+    log.error(`地理编码完全失败: "${placeName}"`);
+    return null;
+  }
+
+  log.ok(`地理编码成功: ${placeName} → ${geo.lng}, ${geo.lat} (${geo.formatted})`);
+
+  // 3. 写入缓存
+  try {
+    await db.query(
+      `INSERT INTO places
+         (raw_name, normalized_name, province, city, longitude, latitude, geocode_source)
+       VALUES ($1, $2, $3, $4, $5, $6, 'amap')
+       ON CONFLICT (raw_name) DO NOTHING`,
+      [placeName, geo.formatted, geo.province, geo.city, geo.lng, geo.lat]
+    );
+  } catch (dbErr) {
+    log.warn(`地名写入缓存失败 (${placeName}):`, dbErr.message);
+  }
+
+  return { longitude: geo.lng, latitude: geo.lat, normalized_name: geo.formatted };
+}
+
+async function matchHistoricalEvents(year, region = 'national') {
+  try {
+    const result = await db.query(
+      `SELECT name, year_start, year_end, description, emotion_tone
+       FROM historical_events
+       WHERE year_start <= $1 AND year_end >= $1
+         AND (region = $2 OR region = 'national')
+       ORDER BY emotion_tone DESC LIMIT 2`,
+      [year, region]
+    );
+    if (result.rows.length > 0) {
+      log.db(`历史事件匹配 year=${year}: ${result.rows.map(r => r.name).join(', ')}`);
+    }
+    return result.rows;
+  } catch (err) {
+    log.warn('历史事件查询失败:', err.message);
+    return [];
+  }
+}
+
+// ============================================================
+// 路由：POST /amapapi/chat  流式对话
+// ============================================================
+app.post('/amapapi/chat', async (req, res) => {
+  const { messages, familyId } = req.body;
+
+  log.ai(`[chat] 开始  轮次=${messages?.length || 0}  familyId=${familyId || '无'}`);
+  log.ai(`[chat] 模型=${QWEN_MODEL}  最后消息: "${messages?.at(-1)?.content?.slice(0, 60) || ''}"`);
+
+  const COLLECTOR_SYSTEM = `你是一个温暖、耐心的家族故事收集者。你的任务是通过自然对话，
+收集用户家族的迁徙信息。
+
+对话策略：
+1. 每次只问一个问题，不要一次问多个
+2. 先问本人，再问父母，再问祖父母
+3. 核心要收集：每个人的出生地、重大迁徙地点和年份、原因
+4. 用温暖、简短的语言，不要正式
+5. 当收集到3代以上信息后，在回复末尾加上 [INFO_COMPLETE]
+
+提问顺序建议：
+- 第1问：你现在住在哪里？叫什么名字？
+- 第2问：你的父母是哪里人？现在在哪？
+- 第3问：爷爷奶奶那辈是哪里的？
+- 第4问：家里有没有重要的搬迁故事？
+- 第5问：家人有没有特殊经历（读书、当兵、下乡等）？
+
+语气：像老朋友聊天，不像填表格。`;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  let fullText = '';
+  let chunkCount = 0;
+
+  try {
+    log.ai('[chat] 发起 stream 请求...');
+
+    const stream = anthropic.messages.stream({
+      model:      QWEN_MODEL,
+      max_tokens: 500,
+      system:     COLLECTOR_SYSTEM,
+      messages:   messages,
+    });
+
+    stream.on('text', (text) => {
+      fullText   += text;
+      chunkCount += 1;
+      // 每5个chunk打印一次进度（避免刷屏）
+      if (chunkCount % 5 === 1) {
+        log.stream(` ·[stream chunk #${chunkCount}] "${text.slice(0, 30)}"`);
+        process.stdout.write('\n');
+      }
+      res.write(`data: ${JSON.stringify({ type: 'text', content: text })}\n\n`);
+    });
+
+    stream.on('finalMessage', async (msg) => {
+      const isComplete = fullText.includes('[INFO_COMPLETE]');
+      log.ai(`[chat] 完成  chunks=${chunkCount}  tokens=${msg.usage?.output_tokens || '?'}  isComplete=${isComplete}`);
+      log.ai(`[chat] 完整回复(前100字): "${fullText.slice(0, 100)}"`);
+
+      res.write(`data: ${JSON.stringify({ type: 'done', isComplete, familyId })}\n\n`);
+      res.end();
+
+      if (familyId) {
+        try {
+          await db.query(
+            `UPDATE chat_sessions SET messages=$1, is_complete=$2, updated_at=NOW()
+             WHERE family_id=$3`,
+            [JSON.stringify(messages), isComplete, familyId]
+          );
+          log.db(`[chat] 会话已更新 familyId=${familyId}`);
+        } catch (dbErr) {
+          log.warn('[chat] 会话更新失败:', dbErr.message);
+        }
+      }
+    });
+
+    // SDK 流错误（网络断开、token超限等）
+    stream.on('error', (err) => {
+      log.error('[chat] stream error:', err.message);
+      log.error('[chat] 错误详情:', JSON.stringify(err, null, 2));
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+        res.end();
+      }
+    });
+
+  } catch (err) {
+    // 同步层面错误（配置错误、网络无法连接等）
+    log.error('[chat] 请求发起失败:', err.message);
+    log.error('[chat] status:', err.status);
+    log.error('[chat] 完整错误:', err);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+// ============================================================
+// 路由：POST /amapapi/extract  结构化抽取
+// ============================================================
+app.post('/amapapi/extract', async (req, res) => {
+  const { conversationText, familyId } = req.body;
+
+  log.ai(`[extract] 开始  textLen=${conversationText?.length || 0}  familyId=${familyId || '无'}`);
+  log.ai(`[extract] 模型=${QWEN_MODEL_HEAVY}`);
+
+  const EXTRACTION_PROMPT = `你是家族历史信息抽取专家。从以下对话中抽取家族迁徙信息。
+
+必须输出合法 JSON，不得有任何其他文字。格式严格如下：
+{
+  "family_name": "姓氏或家族名",
+  "persons": [
+    {
+      "internal_id": "p1",
+      "role": "本人|父亲|母亲|爷爷|奶奶|外公|外婆",
+      "name": "姓名（未知填未知）",
+      "birth_year": 1970,
+      "birth_place": "原始地名",
+      "occupation": "职业",
+      "generation": 0
+    }
+  ],
+  "migrations": [
+    {
+      "person_internal_id": "p1",
+      "from_place": "出发地",
+      "to_place": "目的地",
+      "year": 1990,
+      "year_approx": false,
+      "reason": "迁徙原因描述",
+      "reason_type": "study|work|war|disaster|assignment|family|unknown",
+      "emotion_weight": "low|medium|high",
+      "sequence_order": 1
+    }
+  ],
+  "relationships": [
+    { "from_id": "p1", "to_id": "p2", "type": "父子" }
+  ]
+}
+
+规则：
+- generation: 0=本人, 1=父辈, 2=祖辈, -1=子辈
+- emotion_weight: 重大历史背景下的迁徙填high，普通求学填medium，日常移居填low
+- sequence_order 全局递增，按时间排序
+
+对话内容：
+${conversationText}`;
+
+  try {
+    log.ai('[extract] 调用 LLM...');
+    const t0 = Date.now();
+
+    const response = await anthropic.messages.create({
+      model:      QWEN_MODEL_HEAVY,  // ← 修复：统一用 qwen 模型
+      max_tokens: 2000,
+      messages:   [{ role: 'user', content: EXTRACTION_PROMPT }],
+    });
+
+    const elapsed = Date.now() - t0;
+    log.ai(`[extract] LLM 完成  耗时=${elapsed}ms  tokens=${response.usage?.output_tokens || '?'}`);
+
+    const rawJson  = response.content[0].text;
+    log.ai('[extract] 原始输出(前200字):', rawJson.slice(0, 200));
+
+    const cleanJson = rawJson.replace(/```json\n?|\n?```/g, '').trim();
+
+    let data;
+    try {
+      data = JSON.parse(cleanJson);
+      log.ok(`[extract] JSON解析成功  persons=${data.persons?.length}  migrations=${data.migrations?.length}`);
+    } catch (parseErr) {
+      log.error('[extract] JSON解析失败:', parseErr.message);
+      log.error('[extract] 原始内容:', cleanJson.slice(0, 500));
+      return res.status(500).json({ success: false, error: 'JSON解析失败: ' + parseErr.message, raw: cleanJson });
+    }
+
+    // ── 写入数据库 ────────────────────────────────────────────
+    let fid = familyId;
+
+    // 1. family_profile
+    if (!fid) {
+      const fp = await db.query(
+        `INSERT INTO family_profiles (family_name, raw_input, status)
+         VALUES ($1, $2, 'processing') RETURNING id`,
+        [data.family_name, conversationText]
+      );
+      fid = fp.rows[0].id;
+      log.db(`[extract] 新建 family_profile  id=${fid}  name=${data.family_name}`);
+    }
+
+    // 2. 人物
+    const personIdMap = {};
+    for (const p of data.persons) {
+      const result = await db.query(
+        `INSERT INTO persons
+           (family_id, internal_id, role, name, birth_year, birth_place, occupation, generation)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [fid, p.internal_id, p.role, p.name || '未知',
+         p.birth_year, p.birth_place, p.occupation, p.generation]
+      );
+      personIdMap[p.internal_id] = result.rows[0].id;
+      log.db(`[extract] 插入人物: ${p.role}(${p.internal_id}) → db.id=${result.rows[0].id}`);
+    }
+
+    // 3. 迁徙事件
+    for (const m of data.migrations) {
+      log.info(`[extract] 处理迁徙: ${m.from_place} → ${m.to_place}  year=${m.year}`);
+
+      const fromGeo = await geocodePlace(m.from_place);
+      const toGeo   = await geocodePlace(m.to_place);
+
+      const fromPlace = await db.query('SELECT id FROM places WHERE raw_name=$1', [m.from_place]);
+      const toPlace   = await db.query('SELECT id FROM places WHERE raw_name=$1', [m.to_place]);
+
+      const personDbId = personIdMap[m.person_internal_id];
+      if (!personDbId) {
+        log.warn(`[extract] 找不到 person_internal_id=${m.person_internal_id}，跳过此迁徙`);
+        continue;
+      }
+
+      await db.query(
+        `INSERT INTO migrations
+           (family_id, person_id, from_place_id, to_place_id,
+            from_place_raw, to_place_raw, year, year_approx,
+            reason, reason_type, emotion_weight, sequence_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          fid, personDbId,
+          fromPlace.rows[0]?.id,
+          toPlace.rows[0]?.id,
+          m.from_place, m.to_place,
+          m.year, m.year_approx || false,
+          m.reason, m.reason_type,
+          m.emotion_weight, m.sequence_order,
+        ]
+      );
+      log.db(`[extract] 迁徙已入库: ${m.from_place} → ${m.to_place}`);
+    }
+
+    // 4. 完成
+    await db.query(
+      `UPDATE family_profiles SET status='ready', ai_confidence=0.85 WHERE id=$1`, [fid]
+    );
+    log.ok(`[extract] 全部完成  familyId=${fid}`);
+
+    res.json({ success: true, familyId: fid, data });
+
+  } catch (err) {
+    log.error('[extract] 异常:', err.message);
+    log.error('[extract] stack:', err.stack);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：GET /amapapi/migration-map/:familyId
+// ============================================================
+app.get('/amapapi/migration-map/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  log.info(`[migration-map] 查询 familyId=${familyId}`);
+
+  try {
+    const paths   = await db.query(`SELECT * FROM v_migration_paths WHERE family_id=$1`, [familyId]);
+    const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
+    const family = await db.query(`SELECT family_name FROM family_profiles WHERE id=$1`, [familyId]);
+
+    log.db(`[migration-map] paths=${paths.rows.length}  persons=${persons.rows.length}`);
+
+    const events = [];
+    for (const row of paths.rows) {
+      if (row.year) {
+        const matched = await matchHistoricalEvents(row.year);
+        if (matched.length > 0) events.push({ migration_id: row.id, year: row.year, events: matched });
+      }
+    }
+
+    // 检查是否有坐标缺失
+    const missingCoords = paths.rows.filter(r => !r.from_lng || !r.to_lng);
+    if (missingCoords.length > 0) {
+      log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
+        missingCoords.map(r => `${r.from_place_raw}→${r.to_place_raw}`).join(', '));
+    }
+
+    log.ok(`[migration-map] 返回成功  events=${events.length}`);
+    res.json({
+      success: true,
+      familyName: family.rows[0]?.family_name || '您的家族',
+      paths: paths.rows,
+      persons: persons.rows,
+      historicalEvents: events
+    });
+
+  } catch (err) {
+    log.error('[migration-map] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：POST /amapapi/generate-story/:familyId
+// ============================================================
+app.post('/amapapi/generate-story/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  log.ai(`[generate-story] 开始  familyId=${familyId}  模型=${QWEN_MODEL_HEAVY}`);
+
+  try {
+    const mapData = await db.query(`SELECT * FROM v_migration_paths WHERE family_id=$1`, [familyId]);
+    const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1`, [familyId]);
+
+    log.ai(`[generate-story] 数据: persons=${persons.rows.length}  paths=${mapData.rows.length}`);
+
+    const STORY_PROMPT = `你是家族史叙事大师。根据以下家族迁徙数据，生成叙事章节。
+
+叙事风格原则：
+1. 用具体细节，不用抽象赞美
+2. 多用"他不知道……"制造时间折叠感
+3. 每段不超过3句，克制有力
+4. 绝不使用"了不起""艰辛""伟大"等外露词汇
+5. 历史事件作背景，人物是主角
+
+家族数据：
+人物：${JSON.stringify(persons.rows, null, 2)}
+迁徙路径：${JSON.stringify(mapData.rows, null, 2)}
+
+输出严格 JSON，格式：
+{
+  "chapters": [
+    {
+      "sequence_order": 1,
+      "beat_type": "anchor",
+      "narration": "叙事文本",
+      "pause_seconds": 4,
+      "map_action": { "type": "show_place", "place": "地名", "zoom": 8 },
+      "historical_context": "可选的历史背景说明"
+    }
+  ]
+}
+
+beat_type 枚举: anchor | person | danger | meeting | choice | arrival | silence`;
+
+    const t0 = Date.now();
+    const response = await anthropic.messages.create({
+      model:      QWEN_MODEL_HEAVY,   // ← 修复：统一用 qwen 模型
+      max_tokens: 3000,
+      messages:   [{ role: 'user', content: STORY_PROMPT }],
+    });
+
+    log.ai(`[generate-story] LLM 完成  耗时=${Date.now()-t0}ms  tokens=${response.usage?.output_tokens || '?'}`);
+
+    const rawText   = response.content[0].text;
+    const cleanJson = rawText.replace(/```json\n?|\n?```/g, '').trim();
+
+    let storyData;
+    try {
+      storyData = JSON.parse(cleanJson);
+      log.ok(`[generate-story] JSON解析成功  chapters=${storyData.chapters?.length}`);
+    } catch (parseErr) {
+      log.error('[generate-story] JSON解析失败:', parseErr.message);
+      log.error('[generate-story] 原始内容:', cleanJson.slice(0, 500));
+      return res.status(500).json({ success: false, error: 'JSON解析失败', raw: cleanJson });
+    }
+
+    for (const ch of storyData.chapters) {
+      await db.query(
+        `INSERT INTO story_chapters
+           (family_id, sequence_order, beat_type, narration, pause_seconds, map_action)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [familyId, ch.sequence_order, ch.beat_type,
+         ch.narration, ch.pause_seconds, JSON.stringify(ch.map_action)]
+      );
+    }
+
+    log.ok(`[generate-story] ${storyData.chapters.length} 章节已写入数据库`);
+    res.json({ success: true, chapters: storyData.chapters });
+
+  } catch (err) {
+    log.error('[generate-story] 异常:', err.message);
+    log.error('[generate-story] stack:', err.stack);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：GET /amapapi/geocode
+// ============================================================
+app.get('/amapapi/geocode', async (req, res) => {
+  const { place } = req.query;
+  if (!place) return res.status(400).json({ error: 'place 参数必填' });
+
+  log.info(`[geocode] 查询: "${place}"`);
+  const result = await geocodePlace(place);
+  log.ok(`[geocode] 结果:`, result);
+  res.json({ success: !!result, data: result });
+});
+
+// ============================================================
+// 路由：GET /amapapi/health  健康检查
+// ============================================================
+app.get('/amapapi/health', async (req, res) => {
+  const health = {
+    status:   'ok',
+    time:     new Date().toISOString(),
+    db:       false,
+    ai_key:   !!process.env.DASHSCOPE_API_KEY,
+    ai_url:   process.env.ANTHROPIC_BASE_URL || '(default)',
+    amap_key: !!process.env.AMAP_KEY,
+    model_chat:  QWEN_MODEL,
+    model_heavy: QWEN_MODEL_HEAVY,
+  };
+
+  try {
+    await db.query('SELECT 1');
+    health.db = true;
+  } catch {}
+
+  log.info('[health]', JSON.stringify(health));
+  res.json(health);
+});
+
+// ============================================================
+// 全局错误处理
+// ============================================================
+app.use((err, req, res, _next) => {
+  log.error('未捕获路由错误:', err.message);
+  res.status(500).json({ success: false, error: err.message });
+});
+
+// ============================================================
+// 启动
+// ============================================================
+const PORT = process.env.PORT || 3005;
+app.listen(PORT, async () => {
+  console.log('');
+  console.log(C.bold + '═══════════════════════════════════════════' + C.reset);
+  console.log(C.bold + '  家族迁徙平台 API  [调试增强版]' + C.reset);
+  console.log(C.bold + '═══════════════════════════════════════════' + C.reset);
+  log.ok(`服务地址: http://localhost:${PORT}`);
+  log.ok(`健康检查: http://localhost:${PORT}/amapapi/health`);
+  console.log('');
+
+  // 启动时验证所有依赖
+  checkAI();
+  checkAmap();
+  await checkDB();
+
+  console.log('');
+  log.ok('服务已就绪，等待请求...');
+  console.log('');
+});

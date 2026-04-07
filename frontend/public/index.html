@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族迁徙 · 寻根</title>
+
+<!-- 移动端检测跳转 -->
+<script>
+(function() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase());
+  // 也检查屏幕宽度
+  const isSmallScreen = window.innerWidth <= 768;
+
+  if (isMobile || isSmallScreen) {
+    window.location.href = '/mobile-chat.html';
+  }
+})();
+</script>
+
+<!--
+  高德地图 JS API v4 · 官方推荐加载方式
+  ─────────────────────────────────────────────────────────────
+  两种安全密钥注入方式，二选一：
+
+  方式 A（推荐开发阶段）：直接在前端设置 _AMapSecurityConfig
+    → 简单，一行代码，适合内网/测试环境
+    → 安全密钥对用户可见（DevTools 可查），生产环境需配合域名白名单
+
+  方式 B（推荐生产环境）：Nginx 代理注入 jscode
+    → 安全密钥完全不出现在前端，用户无法获取
+    → 需配置 Nginx，见 nginx.conf
+
+  本文件默认使用方式 A，生产上线时切换方式 B 并注释掉 _AMapSecurityConfig
+  ─────────────────────────────────────────────────────────────
+-->
+<!-- Nginx 代理模式：jscode 由 f.aifeisu.cn 服务器注入，前端不持有密钥 -->
+<script src="https://webapi.amap.com/loader.js"></script>
+<script>
+  // 方式 B：Nginx 代理注入 jscode（当前生效）
+  // f.aifeisu.cn/_AMapService 由 Nginx 转发并附加安全密钥
+  // 无需 _AMapSecurityConfig，serviceHost 在 AMapLoader.load() 中指定
+
+  // 方式 A（备用，本地无代理时取消注释）：
+  // window._AMapSecurityConfig = { securityJsCode: '你的安全密钥' };
+</script>
+
+<style>
+/* ── 字体 ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500&family=DM+Mono:wght@300;400&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+/* ── 全局变量 ────────────────────────────────────────────────── */
+:root {
+  /* 浅色主题（聊天面板） */
+  --ink:       #1a1814;
+  --ink-light: #4a4540;
+  --ink-muted: #8a8580;
+  --paper:     #faf8f4;
+  --paper-2:   #f2ede5;
+  --border:    rgba(26,24,20,0.1);
+  --gold:      #b8944a;
+  --gold-light:#e8d49a;
+
+  /* 深色主题（地图面板）- xungen_v3 风格 */
+  --night:     #090806;
+  --ink0:      #110f0b;
+  --ink1:      #1a1710;
+  --ink2:      #232018;
+  --gold-v3:   #c8a96e;
+  --gold2:     #e8d098;
+  --cream:     #eee8d8;
+  --mist:      rgba(238,232,216,0.5);
+  --mist2:     rgba(238,232,216,0.25);
+  --mist3:     rgba(238,232,216,0.1);
+  --mist4:     rgba(238,232,216,0.05);
+
+  /* 迁徙路径颜色（更鲜艳） */
+  --purple:    #534AB7;
+  --teal:      #1D9E75;
+  --coral:     #D85A30;
+  --blue:      #185FA5;
+  --purple-v3: #a890e0;
+  --teal-v3:   #3ec9a0;
+  --coral-v3:  #e07258;
+  --blue-v3:   #6aabdc;
+
+  --radius:    8px;
+  --shadow:    0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── 顶栏 ───────────────────────────────────────────────────── */
+.top-bar {
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  background: var(--paper);
+  flex-shrink: 0;
+  z-index: 10;
+}
+.logo {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+}
+.logo span { color: var(--gold); }
+.step-pills {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.step-pill {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  cursor: default;
+  transition: all 0.2s;
+}
+.step-pill.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.step-pill.done {
+  background: var(--paper-2);
+  color: var(--ink-light);
+}
+
+/* ── 主布局 ─────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  overflow: hidden;
+}
+
+/* ── 左栏：对话面板 ─────────────────────────────────────────── */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--paper);
+  overflow: hidden;
+}
+.chat-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.chat-header h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.chat-header p {
+  font-size: 11px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.msg {
+  max-width: 88%;
+  line-height: 1.65;
+  font-size: 13px;
+  animation: msgIn 0.2s ease;
+}
+@keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.msg-ai {
+  align-self: flex-start;
+}
+.msg-ai .bubble {
+  background: var(--paper-2);
+  padding: 10px 14px;
+  border-radius: 4px 12px 12px 12px;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+
+.msg-user {
+  align-self: flex-end;
+}
+.msg-user .bubble {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 14px;
+  border-radius: 12px 4px 12px 12px;
+}
+
+.msg-label {
+  font-size: 10px;
+  color: var(--ink-muted);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.msg-user .msg-label { text-align: right; }
+
+/* 时间线叙事消息 */
+.msg-timeline .bubble {
+  background: var(--paper-2);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-item:last-child { border-bottom: none; }
+.tl-year {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gold);
+  min-width: 50px;
+  text-align: center;
+}
+.tl-content {
+  flex: 1;
+}
+.tl-person {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.tl-event {
+  font-size: 11px;
+  color: var(--ink-light);
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+.tl-route {
+  font-size: 10px;
+  color: var(--ink-muted);
+}
+.timeline-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--gold-light);
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--paper-2);
+  border-radius: 4px 12px 12px 12px;
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.typing-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+  animation: typingBounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-5px); opacity: 1; }
+}
+
+.chat-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.chat-input {
+  flex: 1;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper-2);
+  color: var(--ink);
+  resize: none;
+  outline: none;
+  min-height: 40px;
+  max-height: 120px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.chat-input:focus { border-color: var(--ink-light); }
+.chat-input::placeholder { color: var(--ink-muted); }
+
+.send-btn {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.send-btn:hover { opacity: 0.8; }
+.send-btn:disabled { opacity: 0.3; cursor: default; }
+.send-btn svg { width: 16px; height: 16px; }
+
+/* 生成按钮 */
+.generate-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--gold);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  display: none;
+}
+.generate-btn:hover { opacity: 0.85; }
+.generate-btn.visible { display: block; }
+
+/* ── 右栏：地图面板 ─────────────────────────────────────────── */
+.map-panel {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: var(--night);
+}
+
+#amap-container {
+  flex: 1;
+  width: 100%;
+  background: var(--night);
+}
+
+/* 地图顶部信息条 */
+.map-overlay-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 14px 20px;
+  background: linear-gradient(to bottom, rgba(9,8,6,0.85) 60%, transparent);
+  pointer-events: none;
+}
+.map-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--cream);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.map-subtitle {
+  font-size: 11px;
+  color: var(--mist2);
+  letter-spacing: 0.03em;
+  font-family: 'DM Mono', monospace;
+}
+
+/* 叙事播放器 */
+.story-player {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: linear-gradient(to top, rgba(9,8,6,0.92) 70%, transparent);
+  padding: 20px 24px 16px;
+  display: none;
+}
+.story-player.visible { display: block; }
+
+.story-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.progress-dot {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--mist3);
+  transition: background 0.3s;
+}
+.progress-dot.done { background: var(--mist2); }
+.progress-dot.active { background: var(--gold-v3); }
+
+.story-chapter-label {
+  font-size: 10px;
+  color: var(--mist2);
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  font-family: 'DM Mono', monospace;
+}
+.story-narration {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--cream);
+  line-height: 1.8;
+  min-height: 54px;
+  letter-spacing: 0.02em;
+}
+.story-historical {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--mist2);
+  padding: 6px 10px;
+  border-left: 2px solid var(--gold-v3);
+  line-height: 1.5;
+  display: none;
+}
+.story-historical.visible { display: block; }
+
+.story-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+.story-btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink-light);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.story-btn:hover { background: var(--paper-2); }
+.story-btn.primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.story-btn.primary:hover { opacity: 0.8; }
+
+/* 迁徙图例 */
+.map-legend {
+  position: absolute;
+  top: 60px; right: 16px;
+  z-index: 100;
+  background: rgba(9,8,6,0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--mist4);
+  border-radius: 9px;
+  padding: 10px 14px;
+  display: none;
+}
+.map-legend.visible { display: block; }
+.legend-title {
+  font-size: 10px;
+  color: var(--mist2);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  font-family: 'DM Mono', monospace;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--mist);
+  margin-bottom: 5px;
+}
+.legend-line {
+  width: 24px; height: 2px;
+  border-radius: 1px;
+}
+
+/* 时间线叙事卡片 - xungen_v3 风格 */
+.timeline-card{
+  position:absolute;
+  z-index:30;
+  background:rgba(9,8,6,.92);backdrop-filter:blur(12px);
+  border:1px solid rgba(200,169,110,.3);
+  border-radius:12px;
+  padding:14px 18px;
+  width:200px;
+  opacity:0;pointer-events:none;
+  transition:opacity .6s ease,transform .6s ease;
+}
+.timeline-card.visible{
+  opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0);
+}
+.tc-year{
+  font-family:'DM Mono',monospace;font-size:24px;font-weight:500;
+  color:var(--gold-v3);margin-bottom:6px;letter-spacing:.1em;
+}
+.tc-person{
+  font-family:'Noto Serif SC',serif;font-size:13px;font-weight:400;
+  color:var(--cream);margin-bottom:4px;letter-spacing:.05em;
+}
+.tc-event{
+  font-size:12px;color:var(--mist);line-height:1.6;
+  margin-bottom:4px;
+}
+.tc-route{
+  font-size:11px;color:var(--mist2);line-height:1.4;
+  font-family:'DM Mono',monospace;
+}
+
+/* 加载态 */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(250,248,244,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  display: none;
+}
+.loading-overlay.visible { display: flex; }
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  margin-top: 12px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  color: var(--ink-muted);
+  letter-spacing: 0.05em;
+}
+</style>
+</head>
+<body>
+
+<!-- ── 顶栏 ──────────────────────────────────────────────────── -->
+<div class="top-bar">
+  <div class="logo">寻<span>·</span>根</div>
+  <div class="step-pills">
+    <div class="step-pill active" id="step-1">讲述故事</div>
+    <div class="step-pill" id="step-2">生成地图</div>
+    <div class="step-pill" id="step-3">家族史诗</div>
+  </div>
+</div>
+
+<!-- ── 主布局 ──────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ── 左：对话面板 ───────────────────────────────────────── -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <h2>告诉我你的家族故事</h2>
+      <p>用你自己的方式描述，我来帮你整理</p>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <!-- 初始欢迎消息 -->
+      <div class="msg msg-ai">
+        <div class="msg-label">寻根</div>
+        <div class="bubble">你好，我来帮你记录你的家族故事。<br><br>先说说你自己吧——你现在住在哪里？</div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+        <textarea
+          id="chat-input"
+          class="chat-input"
+          placeholder="用你自己的方式描述..."
+          rows="1"
+        ></textarea>
+        <button class="generate-btn" id="generate-btn" onclick="generateMap()">
+          生成家族迁徙地图 →
+        </button>
+      </div>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 右：地图面板 ───────────────────────────────────────── -->
+  <div class="map-panel">
+
+    <!-- 加载中 -->
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loading-text">正在解析家族信息…</div>
+    </div>
+
+    <!-- 地图顶部信息 -->
+    <div class="map-overlay-top">
+      <div class="map-title" id="map-title">家族迁徙地图</div>
+      <div class="map-subtitle" id="map-subtitle">完成对话后生成你的家族迁徙路径</div>
+    </div>
+
+    <!-- 高德地图容器 -->
+    <div id="amap-container"></div>
+
+    <!-- 时间线叙事卡片（动态生成） -->
+    <div class="timeline-card" id="timeline-card" style="display:none;">
+      <div class="tc-year" id="tc-year"></div>
+      <div class="tc-person" id="tc-person"></div>
+      <div class="tc-event" id="tc-event"></div>
+      <div class="tc-route" id="tc-route"></div>
+    </div>
+
+    <!-- 图例 -->
+    <div class="map-legend" id="map-legend">
+      <div class="legend-title">迁徙路径</div>
+      <div id="legend-items"></div>
+    </div>
+
+    <!-- 故事播放器 -->
+    <div class="story-player" id="story-player">
+      <div class="story-progress" id="story-progress"></div>
+      <div class="story-chapter-label" id="chapter-label">第一章 · 起点</div>
+      <div class="story-narration" id="story-narration">—</div>
+      <div class="story-historical" id="story-historical"></div>
+      <div class="story-controls">
+        <button class="story-btn" onclick="prevChapter()">← 上一段</button>
+        <span style="font-size:11px;color:var(--ink-muted)" id="chapter-counter">1 / 1</span>
+        <button class="story-btn primary" onclick="nextChapter()">继续 →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 配置
+// ============================================================
+const API_BASE = 'http://localhost:3005/amapapi';
+
+// ── 地图颜色方案（每种迁徙类型一种颜色）────────────────────
+const MIGRATION_COLORS = {
+  study:      '#a890e0', // 求学 → 紫
+  assignment: '#e07258', // 分配 → 橙红
+  work:       '#6aabdc', // 工作 → 蓝
+  family:     '#3ec9a0', // 家庭 → 绿
+  war:        '#A32D2D', // 战乱 → 深红
+  unknown:    '#888780', // 未知 → 灰
+  default:    '#c8a96e',
+};
+
+// ── 状态 ─────────────────────────────────────────────────────
+const state = {
+  messages:       [],
+  familyId:       null,
+  isInfoComplete: false,
+  mapData:        null,
+  chapters:       [],
+  currentChapter: 0,
+  amapInstance:   null,
+  markers:        [],
+  polylines:      [],
+  demoAnimationTimer: null,  // Demo 循环动画定时器
+  isDemoPlaying:  false,     // 是否正在播放 demo 动画
+};
+
+// Demo 迁徙数据（循环播放）
+const DEMO_PATHS = [
+  {
+    id: 'demo-1', sequence_order: 1,
+    person_role: '父亲', person_name: '张志远', generation: 2,
+    from_place: '黑龙江省双城县', from_lng: 126.312, from_lat: 45.374,
+    to_place: '北京', to_lng: 116.407, to_lat: 39.904,
+    year: 1960, reason: '求学', reason_type: 'study', emotion_weight: 'high',
+    event_desc: '贫农的儿子考入清华大学，走出了家族的第一步',
+  },
+  {
+    id: 'demo-3', sequence_order: 3,
+    person_role: '母亲', person_name: '李秀英', generation: 2,
+    from_place: '哈尔滨', from_lng: 126.642, from_lat: 45.757,
+    to_place: '辽宁省铁岭县', to_lng: 123.844, to_lat: 42.223,
+    year: 1970, reason: '随军调迁', reason_type: 'family', emotion_weight: 'medium',
+    event_desc: '随丈夫工作调动，举家迁往铁岭',
+  },
+  {
+    id: 'demo-2', sequence_order: 2,
+    person_role: '父亲', person_name: '张志远', generation: 0,
+    from_place: '北京', from_lng: 116.407, from_lat: 39.904,
+    to_place: '辽宁省铁岭县', to_lng: 123.844, to_lat: 42.223,
+    year: 1970, reason: '大学毕业分配到铁岭', reason_type: 'work', emotion_weight: 'medium',
+    event_desc: '文化大革命在这里工作生活至今',
+  },
+  {
+    id: 'demo-4', sequence_order: 4,
+    person_role: '本人', person_name: '你', generation: 0,
+    from_place: '辽宁省铁岭县', from_lng: 123.844, from_lat: 42.223,
+    to_place: '北京', to_lng: 116.407, to_lat: 39.904,
+    year: 1990, reason: '大学毕业来京工作', reason_type: 'work', emotion_weight: 'medium',
+    event_desc: '从铁岭来到北京，在这里工作生活至今',
+  }
+];
+
+// ============================================================
+// 高德地图 v4 初始化
+// 完全按照官方文档写法：
+//   window._AMapSecurityConfig 在 <head> 里已声明
+//   AMapLoader.load() 异步加载，.then() 里创建地图实例
+// ============================================================
+function initMap() {
+  AMapLoader.load({
+    key:     'b05662825818663084ef068e06bf9744',        // ← 替换为你的 Web端(JS API) 类型 Key
+    version: '2.0',
+    plugins: ['AMap.Polyline', 'AMap.Marker', 'AMap.Scale'],
+    // Nginx 代理：请求经 f.aifeisu.cn 转发，jscode 由服务器注入
+    serviceHost: 'https://f.aifeisu.cn/_AMapService',
+  })
+  .then((AMap) => {
+    window.AMap = AMap;
+
+    state.amapInstance = new AMap.Map('amap-container', {
+      zoom:     5,
+      center:   [113.0, 38.0],
+      mapStyle: 'amap://styles/dark',   // 深色主题，与整体风格一致
+    });
+
+    state.amapInstance.addControl(new AMap.Scale());
+    console.log('[AMap v4] 地图初始化成功');
+
+    // 启动 Demo 循环动画
+    startDemoAnimation();
+  })
+  .catch((e) => {
+    console.error('[AMap v4] 加载失败:', e);
+    document.getElementById('amap-container').style.background =
+      'linear-gradient(135deg, #090806 0%, #110f0b 100%)';
+  });
+}
+
+// 在地图上绘制迁徙路径（序列动画版）
+function renderMigrationPaths(paths) {
+  state.markers.forEach(m => m.remove());
+  state.polylines.forEach(p => p.remove());
+  state.markers  = [];
+  state.polylines = [];
+
+  if (!paths?.length) return;
+
+  const legendItems = {};
+
+  // 先按 sequence_order 排序
+  const sorted = [...paths].filter(p => p.from_lng && p.to_lng)
+    .sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0));
+
+  // 预先创建所有路径和标记（全透明）
+  const polylines = [];
+  const markerPairs = []; // [{fromWrap, toWrap, fromMarker, toMarker}]
+
+  sorted.forEach((path, idx) => {
+    const color = MIGRATION_COLORS[path.reason_type] || MIGRATION_COLORS.default;
+    const from  = [path.from_lng, path.from_lat];
+    const to    = [path.to_lng,   path.to_lat];
+
+    // 曲线点集 - 根据 sequence_order 调整弧度，避免路径重叠
+    const midLng   = (path.from_lng + path.to_lng) / 2;
+    const midLat   = (path.from_lat + path.to_lat) / 2 + 2.5 + (idx * 0.8);
+    const allPts   = generateCurve(from, to, [midLng, midLat], 80);
+
+    // 路径（先只放第一个点，动画时逐步延伸）
+    const line = new AMap.Polyline({
+      path:          [allPts[0], allPts[0]],
+      strokeColor:   color,
+      strokeWeight:  path.emotion_weight === 'high' ? 4 : 3,
+      strokeOpacity: 0,
+      strokeStyle:   'solid',
+      lineJoin:      'round',
+      lineCap:       'round',
+      map:           state.amapInstance,
+    });
+    line._allPts = allPts; // 缓存完整点集
+    polylines.push(line);
+    state.polylines.push(line);
+
+    // 出发地标记（透明）
+    const fromWrap = createCityMarkerEl(path.from_place, color, false);
+    const fromMk   = new AMap.Marker({ position: from, content: fromWrap, anchor: 'bottom-center', map: state.amapInstance });
+    // 目的地标记（透明）
+    const toWrap   = createCityMarkerEl(path.to_place, color, idx === sorted.length - 1);
+    const toMk     = new AMap.Marker({ position: to,   content: toWrap,   anchor: 'bottom-center', map: state.amapInstance });
+
+    markerPairs.push({ fromWrap, toWrap, fromMk, toMk });
+    state.markers.push(fromMk, toMk);
+
+    if (!legendItems[path.reason_type]) {
+      legendItems[path.reason_type] = { color, label: reasonLabel(path.reason_type) };
+    }
+  });
+
+  renderLegend(legendItems);
+
+  // 视野适配：一次性调整到能看见所有路径的范围
+  state.amapInstance.setFitView(state.markers, false, [80, 80, 120, 80]);
+
+  // 启动序列动画
+  setTimeout(() => startPathSequence(sorted, polylines, markerPairs), 1200);
+}
+
+// 序列动画：按时间顺序连续绘制路径（平滑版）
+// 流程：显示起点 → 显示卡片 → 绘制路径 → 显示终点
+function startPathSequence(sorted, polylines, markerPairs) {
+  let delay = 0;
+  const DRAW_MS = 4000;       // 每段路径绘制时长
+  const CARD_SHOW_MS = 3000;  // 卡片显示时长
+
+  sorted.forEach((path, idx) => {
+    // 1. 起点标记出现
+    setTimeout(() => {
+      showMarker(markerPairs[idx].fromWrap);
+    }, delay);
+
+    // 2. 显示叙事卡片（信息完整才显示）
+    setTimeout(() => {
+      if (isPathComplete(path)) {
+        showTimelineCard(path, idx);
+      }
+    }, delay + 500);
+
+    // 3. 路径描绘（卡片显示 3 秒后开始）
+    const lineDelay = delay + 500 + CARD_SHOW_MS;
+    setTimeout(() => drawLineAnimate(polylines[idx], DRAW_MS), lineDelay);
+
+    // 4. 卡片淡出，终点出现
+    setTimeout(() => {
+      hideTimelineCard();
+      showMarker(markerPairs[idx].toWrap);
+    }, lineDelay + DRAW_MS);
+
+    // 下一段的开始时间（路径画完后 1.5 秒）
+    delay = lineDelay + DRAW_MS + 1500;
+  });
+}
+
+// 检查路径信息是否完整（时间、人物、事件三要素）
+function isPathComplete(path) {
+  return path.year &&
+         (path.person_role || path.person_name) &&
+         (path.reason || path.event_desc);
+}
+
+// 地图视角聚集到指定地点
+function focusOnPlace(lng, lat, zoom) {
+  if (!state.amapInstance) return;
+  state.amapInstance.setZoomAndCenter(zoom, [lng, lat], false, 800);
+}
+
+// 显示时间线叙事卡片（固定在地图底部中央，不遮挡路径）
+function showTimelineCard(path, index) {
+  const cardEl = document.getElementById('timeline-card');
+  if (!cardEl) return;
+
+  // 固定位置：地图底部中央
+  cardEl.style.cssText = `
+    display:block;
+    bottom:80px;
+    left:50%;
+    transform:translateX(-50%) translateY(-10px);
+  `;
+
+  // 填充内容
+  document.getElementById('tc-year').textContent = path.year;
+  document.getElementById('tc-person').textContent =
+    `${path.person_role || ''}${path.person_name ? ' ' + path.person_name : ''}`;
+  document.getElementById('tc-event').textContent =
+    (path.event_desc || path.reason || '');
+  document.getElementById('tc-route').textContent =
+    `${path.from_place} → ${path.to_place}`;
+
+  // 淡入
+  cardEl.style.transition = 'opacity .5s ease, transform .5s ease';
+  cardEl.offsetHeight; // 触发重绘
+  cardEl.style.opacity = '1';
+  cardEl.style.transform = 'translateY(0)';
+}
+
+// 隐藏时间线叙事卡片
+function hideTimelineCard() {
+  const cardEl = document.getElementById('timeline-card');
+  if (!cardEl) return;
+  cardEl.style.opacity = '0';
+  cardEl.style.transform = 'translateY(-10px)';
+  setTimeout(() => { cardEl.style.display = 'none'; }, 500);
+}
+
+function showMarker(wrap) {
+  if (!wrap) return;
+  wrap.style.transition = 'opacity .8s ease, transform .8s ease';
+  wrap.style.opacity    = '1';
+  wrap.style.transform  = 'translateY(0)';
+}
+
+function drawLineAnimate(line, duration) {
+  if (!line) return;
+  const allPts = line._allPts;
+  if (!allPts) return;
+
+  line.setOptions({ strokeOpacity: 0.9 });
+  const steps    = allPts.length;
+  const interval = Math.max(duration / steps, 16);
+  let   drawn    = 1;
+
+  const timer = setInterval(() => {
+    drawn = Math.min(drawn + 2, steps);
+    line.setPath(allPts.slice(0, drawn));
+    if (drawn >= steps) clearInterval(timer);
+  }, interval * 2);
+}
+
+// 生成曲线点集
+function generateCurve(from, to, mid, steps = 40) {
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t  = i / steps;
+    const t1 = 1 - t;
+    const x  = t1 * t1 * from[0] + 2 * t1 * t * mid[0] + t * t * to[0];
+    const y  = t1 * t1 * from[1] + 2 * t1 * t * mid[1] + t * t * to[1];
+    points.push([x, y]);
+  }
+  return points;
+}
+
+// 创建城市标记 DOM（初始透明，由动画触发显示）
+function createCityMarkerEl(label, color, isTerminal) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `
+    opacity:0;transform:translateY(8px);
+    display:flex;flex-direction:column;align-items:center;
+    cursor:pointer;
+  `;
+
+  const dotSize = isTerminal ? '18px' : '12px';
+  const glow    = isTerminal ? `0 0 22px ${color}aa` : `0 0 12px ${color}66`;
+
+  wrap.innerHTML = `
+    <div style="
+      width:${dotSize};height:${dotSize};border-radius:50%;
+      background:${color};
+      border:2.5px solid rgba(9,8,6,.85);
+      box-shadow:${glow};
+      ${isTerminal ? `animation:termPulse 3.5s ease-in-out infinite;` : ''}
+    "></div>
+    <div style="
+      margin-top:6px;font-family:'Noto Serif SC',serif;
+      font-size:14px;color:${color};white-space:nowrap;
+      background:rgba(9,8,6,.85);
+      padding:5px 12px;border-radius:9px;
+      border:1px solid ${color}55;
+      letter-spacing:.04em;
+    ">${label || ''}</div>
+  `;
+
+  // 终点脉冲动画 keyframe（只插入一次）
+  if (isTerminal && !document.getElementById('term-pulse-style')) {
+    const st = document.createElement('style');
+    st.id    = 'term-pulse-style';
+    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 12px ${color}77;}50%{box-shadow:0 0 32px ${color}cc;}}`;
+    document.head.appendChild(st);
+  }
+
+  return wrap;
+}
+
+// 图例渲染
+function renderLegend(items) {
+  const container = document.getElementById('legend-items');
+  container.innerHTML = Object.values(items).map(item => `
+    <div class="legend-item">
+      <div class="legend-line" style="background:${item.color}"></div>
+      <span>${item.label}</span>
+    </div>
+  `).join('');
+  document.getElementById('map-legend').classList.add('visible');
+}
+
+function reasonLabel(type) {
+  const map = {
+    study: '求学', assignment: '分配下乡', work: '工作迁移',
+    family: '家庭团聚', war: '战乱逃离', disaster: '灾难迁移',
+    unknown: '迁移', default: '迁移',
+  };
+  return map[type] || '迁移';
+}
+
+// ============================================================
+// 对话功能
+// ============================================================
+function addMessage(role, content) {
+  const container = document.getElementById('chat-messages');
+
+  const isAI = role === 'assistant';
+  const div = document.createElement('div');
+  div.className = `msg msg-${isAI ? 'ai' : 'user'}`;
+  div.innerHTML = `
+    <div class="msg-label">${isAI ? '寻根' : '你'}</div>
+    <div class="bubble">${content.replace(/\n/g, '<br>').replace('[INFO_COMPLETE]', '')}</div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+
+  return div;
+}
+
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-ai';
+  div.id = 'typing-indicator';
+  div.innerHTML = `
+    <div class="msg-label">寻根</div>
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  document.getElementById('typing-indicator')?.remove();
+}
+
+async function sendMessage() {
+  const input    = document.getElementById('chat-input');
+  const sendBtn  = document.getElementById('send-btn');
+  const text     = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', text);
+  state.messages.push({ role: 'user', content: text });
+
+  sendBtn.disabled = true;
+  showTyping();
+
+  try {
+    const response = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: state.messages, familyId: state.familyId }),
+    });
+
+    const reader    = response.body.getReader();
+    const decoder   = new TextDecoder();
+    let   aiContent = '';
+    let   aiDiv     = null;
+
+    removeTyping();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const text = decoder.decode(value);
+      const lines = text.split('\n');
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const data = JSON.parse(line.slice(5));
+
+          if (data.type === 'text') {
+            aiContent += data.content;
+            if (!aiDiv) {
+              aiDiv = addMessage('assistant', '');
+            }
+            aiDiv.querySelector('.bubble').innerHTML =
+              aiContent.replace(/\n/g, '<br>').replace('[INFO_COMPLETE]', '');
+            document.getElementById('chat-messages').scrollTop = 99999;
+          }
+
+          if (data.type === 'done') {
+            state.messages.push({ role: 'assistant', content: aiContent });
+
+            if (data.isComplete || state.messages.length >= 10) {
+              state.isInfoComplete = true;
+              document.getElementById('generate-btn').classList.add('visible');
+            }
+          }
+        } catch {}
+      }
+    }
+
+  } catch (err) {
+    removeTyping();
+    addMessage('assistant', '抱歉，连接出现问题，请重试。');
+  }
+
+  sendBtn.disabled = false;
+}
+
+// ============================================================
+// 生成地图流程
+// ============================================================
+async function generateMap() {
+  // 停止 Demo 动画
+  stopDemoAnimation();
+
+  setLoading(true, '正在解析家族信息…');
+  setStep(2);
+
+  // 1. 抽取结构化数据
+  const conversationText = state.messages
+    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+    .join('\n');
+
+  try {
+    const extractRes = await fetch(`${API_BASE}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationText, familyId: state.familyId }),
+    });
+    const extractData = await extractRes.json();
+
+    if (!extractData.success) throw new Error(extractData.error);
+    state.familyId = extractData.familyId;
+
+    // 2. 跳转到故事时间线页面（先展示整理好的数据）
+    window.location.href = `/story-timeline.html?familyId=${state.familyId}`;
+
+  } catch (err) {
+    setLoading(false);
+    console.error(err);
+    // Demo模式：使用预置数据
+    loadDemoData();
+  }
+}
+
+// ── Demo 预置数据（当后端不可用时）────────────────────────────
+function loadDemoData() {
+  // 直接使用 DEMO_PATHS，避免重复定义
+  renderMigrationPaths(DEMO_PATHS);
+  document.getElementById('map-title').textContent = '家族迁徙地图 · 三代足迹';
+  document.getElementById('map-subtitle').textContent = '1960 双城 — 今日 北京 · 60 年 · 3 段迁徙';
+
+  // 预置章节
+  state.chapters = [
+    { beat_type: 'anchor', narration: '黑龙江省。双城县。\n\n1960 年。', pause_seconds: 4, historical_context: '' },
+    { beat_type: 'person', narration: '有一个人，在那里。他不识字。他种地。', pause_seconds: 4, historical_context: '' },
+    { beat_type: 'meeting', narration: '他的儿子，考上了清华大学。贫农之子，走进了清华。', pause_seconds: 5, historical_context: '' },
+    { beat_type: 'choice', narration: '1970 年。祖母李秀英从哈尔滨随军调迁，举家迁往铁岭。', pause_seconds: 4, historical_context: '' },
+    { beat_type: 'arrival', narration: '你出生在铁岭。在那里长大。后来，你去了北京。', pause_seconds: 4, historical_context: '' },
+    { beat_type: 'silence', narration: '从双城到北京。三代人。六十年。所有这一切，指向了你。', pause_seconds: 6, historical_context: '' },
+  ];
+
+  initStoryPlayer();
+  setStep(3);
+}
+
+// ============================================================
+// 故事播放器
+// ============================================================
+function initStoryPlayer() {
+  const player  = document.getElementById('story-player');
+  const progress = document.getElementById('story-progress');
+
+  // 生成进度点
+  progress.innerHTML = state.chapters
+    .map((_, i) => `<div class="progress-dot ${i === 0 ? 'active' : ''}" id="dot-${i}"></div>`)
+    .join('');
+
+  player.classList.add('visible');
+  state.currentChapter = 0;
+  renderChapter(0);
+}
+
+function renderChapter(idx) {
+  const ch = state.chapters[idx];
+  if (!ch) return;
+
+  // 更新进度
+  state.chapters.forEach((_, i) => {
+    const dot = document.getElementById(`dot-${i}`);
+    if (dot) {
+      dot.className = 'progress-dot' + (i < idx ? ' done' : i === idx ? ' active' : '');
+    }
+  });
+
+  // 更新文字
+  document.getElementById('chapter-label').textContent =
+    `${beatTypeLabel(ch.beat_type)} · ${idx + 1} / ${state.chapters.length}`;
+  document.getElementById('chapter-counter').textContent =
+    `${idx + 1} / ${state.chapters.length}`;
+
+  const narrationEl = document.getElementById('story-narration');
+  narrationEl.style.opacity = '0';
+  setTimeout(() => {
+    narrationEl.innerHTML = ch.narration.replace(/\n/g, '<br>');
+    narrationEl.style.transition = 'opacity 0.6s';
+    narrationEl.style.opacity = '1';
+  }, 150);
+
+  const histEl = document.getElementById('story-historical');
+  if (ch.historical_context) {
+    histEl.textContent = ch.historical_context;
+    histEl.classList.add('visible');
+  } else {
+    histEl.classList.remove('visible');
+  }
+
+  // 地图聚焦（根据章节类型）
+  highlightChapterOnMap(idx);
+}
+
+function highlightChapterOnMap(idx) {
+  if (!state.mapData?.paths?.[idx]) return;
+  const path = state.mapData.paths[idx];
+  if (path.to_lng) {
+    state.amapInstance?.setZoomAndCenter(7, [path.to_lng, path.to_lat], false, 800);
+  }
+}
+
+function nextChapter() {
+  if (state.currentChapter < state.chapters.length - 1) {
+    state.currentChapter++;
+    renderChapter(state.currentChapter);
+  }
+}
+
+function prevChapter() {
+  if (state.currentChapter > 0) {
+    state.currentChapter--;
+    renderChapter(state.currentChapter);
+  }
+}
+
+function beatTypeLabel(type) {
+  const map = {
+    anchor: '序 · 时间锚点', person: '第一代 · 出现', danger: '险境',
+    meeting: '相遇', choice: '选择', arrival: '抵达', silence: '尾声',
+  };
+  return map[type] || type;
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+function setLoading(visible, text) {
+  const overlay = document.getElementById('loading-overlay');
+  if (visible) {
+    overlay.classList.add('visible');
+    document.getElementById('loading-text').textContent = text;
+  } else {
+    overlay.classList.remove('visible');
+  }
+}
+
+function setStep(n) {
+  [1, 2, 3].forEach(i => {
+    const el = document.getElementById(`step-${i}`);
+    el.className = 'step-pill' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+
+function updateMapHeader(data) {
+  if (!data) return;
+  document.getElementById('map-title').textContent =
+    `${data.family_name || ''}家族迁徙地图`;
+  const years = data.migrations?.map(m => m.year).filter(Boolean);
+  if (years?.length) {
+    document.getElementById('map-subtitle').textContent =
+      `${Math.min(...years)} — 今日 · ${data.migrations.length} 段迁徙`;
+  }
+}
+
+// 回车发送
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// 自动高度
+document.getElementById('chat-input').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// ── 初始化 ───────────────────────────────────────────────────
+// v4 使用 AMapLoader 异步加载，initMap 内部处理加载失败的降级
+window.addEventListener('load', () => {
+  initMap();
+});
+
+// ============================================================
+// Demo 循环动画功能
+// ============================================================
+
+// 启动 Demo 循环动画
+function startDemoAnimation() {
+  if (state.isDemoPlaying) return;
+  state.isDemoPlaying = true;
+  console.log('[Demo] 开始智能循环动画');
+
+  // 立即播放一个完整周期
+  playDemoCycle();
+}
+
+// 播放一个完整的 Demo 动画周期（播完后自动循环）
+function playDemoCycle() {
+  if (!state.amapInstance || state.mapData) return;
+
+  console.log('[Demo] 开始播放一个周期');
+
+  // 清除旧的标记和路径
+  state.markers.forEach(m => m.remove());
+  state.polylines.forEach(p => p.remove());
+  state.markers = [];
+  state.polylines = [];
+  document.getElementById('legend-items').innerHTML = '';
+  document.getElementById('map-legend').classList.remove('visible');
+
+  // 使用 Demo 数据渲染
+  renderMigrationPaths(DEMO_PATHS);
+
+  // 更新标题
+  document.getElementById('map-title').textContent = '家族迁徙示例 · 四代足迹';
+  document.getElementById('map-subtitle').textContent = '1960 双城 — 1990 北京 · 30 年 · 4 段迁徙';
+
+  // 计算完整动画时长（4 段路径 × 约 9 秒/段 = 36 秒）
+  const ANIMATION_DURATION = 36000;
+  const FADE_OUT_DELAY = ANIMATION_DURATION + 5000; // 播完后等待 5 秒淡出
+  const RESTART_DELAY = FADE_OUT_DELAY + 3000;      // 淡出后 3 秒重新开始
+
+  // 定时淡出所有路径
+  setTimeout(() => {
+    console.log('[Demo] 淡出所有路径');
+    fadeOutAllPaths();
+  }, FADE_OUT_DELAY);
+
+  // 定时重新开始循环
+  setTimeout(() => {
+    if (state.isDemoPlaying && !state.mapData) {
+      console.log('[Demo] 开始下一个周期');
+      playDemoCycle();
+    }
+  }, RESTART_DELAY);
+}
+
+// 淡出所有路径和标记
+function fadeOutAllPaths() {
+  // 淡出所有 marker
+  state.markers.forEach(m => {
+    if (m && m.getContent()) {
+      const content = m.getContent();
+      if (content && content.style) {
+        content.style.transition = 'opacity 1s ease';
+        content.style.opacity = '0';
+      }
+    }
+  });
+
+  // 淡出所有路径
+  state.polylines.forEach(p => {
+    if (p) {
+      p.setOptions({ strokeOpacity: 0 });
+    }
+  });
+
+  // 淡出卡片
+  hideTimelineCard();
+
+  // 淡出图例
+  document.getElementById('map-legend').classList.remove('visible');
+}
+
+// 停止 Demo 动画
+function stopDemoAnimation() {
+  state.isDemoPlaying = false;
+  console.log('[Demo] 停止 Demo 动画');
+
+  // 清除当前显示的所有路径
+  state.markers.forEach(m => {
+    if (m) m.remove();
+  });
+  state.polylines.forEach(p => {
+    if (p) p.remove();
+  });
+  state.markers = [];
+  state.polylines = [];
+}
+</script>
+</body>
+</html>

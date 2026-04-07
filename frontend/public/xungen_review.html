@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>寻根 · 故事校对</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night:  #0d0c0a;
+  --ink0:   #1a1814;
+  --ink1:   #252218;
+  --ink2:   #302c22;
+  --gold:   #c8a96e;
+  --gold2:  #e8c98e;
+  --cream:  #f0ebe0;
+  --mist:   rgba(240,235,224,.55);
+  --mist2:  rgba(240,235,224,.28);
+  --mist3:  rgba(240,235,224,.12);
+  --teal:   #4ecfa8;
+  --coral:  #e87a5a;
+  --amber:  #d4a054;
+  --serif:  'Noto Serif SC',serif;
+  --sans:   'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);color:var(--cream);
+  font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased;}
+
+/* ── 页面容器 ── */
+#app{width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── 顶部导航 ── */
+.nav{
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;
+  border-bottom:1px solid var(--mist3);
+}
+.nav-logo{font-family:var(--serif);font-size:15px;color:var(--mist2);letter-spacing:.2em;}
+.nav-title{font-size:13px;font-weight:500;color:var(--cream);}
+.nav-skip{font-size:12px;color:var(--mist2);cursor:pointer;padding:4px 8px;}
+.nav-skip:active{opacity:.6;}
+
+/* ── 主内容区（可滚动） ── */
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.main::-webkit-scrollbar{display:none;}
+
+/* ── 入场动画 ── */
+.fade-up{opacity:0;transform:translateY(16px);animation:fadeUp .5s ease forwards;}
+@keyframes fadeUp{to{opacity:1;transform:none;}}
+
+/* ═══════════════════════════════════════════════
+   卡片 0：导言
+═══════════════════════════════════════════════ */
+.intro-card{
+  margin:20px 20px 0;
+  padding:20px;
+  background:var(--ink1);
+  border-radius:16px;
+  border:1px solid var(--mist3);
+  animation-delay:.1s;
+}
+.intro-eyebrow{
+  font-size:10px;font-weight:500;letter-spacing:.15em;
+  color:var(--gold);margin-bottom:10px;
+}
+.intro-text{
+  font-family:var(--serif);font-size:15px;font-weight:300;
+  line-height:1.8;color:var(--cream);
+}
+.intro-sub{
+  margin-top:10px;font-size:12px;color:var(--mist2);line-height:1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   卡片 1：AI 理解结果（可交互核对）
+═══════════════════════════════════════════════ */
+.section-label{
+  padding:20px 20px 8px;
+  font-size:10px;font-weight:500;letter-spacing:.15em;color:var(--mist2);
+}
+
+/* 迁徙条目 */
+.migration-card{
+  margin:0 20px 10px;
+  border-radius:14px;
+  background:var(--ink1);
+  border:1px solid var(--mist3);
+  overflow:hidden;
+  cursor:pointer;
+  transition:border-color .2s;
+  animation-delay:.2s;
+}
+.migration-card:active{border-color:var(--gold);}
+.migration-card.has-issue{border-color:rgba(200,169,110,.3);}
+.migration-card.confirmed{border-color:rgba(78,207,168,.3);}
+
+.mc-head{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;
+}
+.mc-icon{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:14px;
+}
+.mc-icon.ok{background:rgba(78,207,168,.1);color:var(--teal);}
+.mc-icon.warn{background:rgba(200,169,110,.1);color:var(--gold);}
+.mc-icon.err{background:rgba(232,122,90,.1);color:var(--coral);}
+
+.mc-info{flex:1;min-width:0;}
+.mc-route{font-size:14px;font-weight:500;color:var(--cream);margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mc-meta{font-size:11px;color:var(--mist2);}
+
+.mc-action{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--mist3);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .2s;
+}
+
+/* 展开的问题提示 */
+.mc-issue{
+  padding:0 16px 14px;
+  display:none;
+}
+.mc-issue.open{display:block;}
+.issue-bubble{
+  background:rgba(200,169,110,.07);
+  border:1px solid rgba(200,169,110,.15);
+  border-radius:10px;
+  padding:10px 14px;
+}
+.issue-label{font-size:10px;font-weight:500;letter-spacing:.08em;color:var(--gold);margin-bottom:5px;}
+.issue-text{font-size:12px;color:var(--mist);line-height:1.6;}
+
+/* 修正输入区 */
+.fix-area{
+  padding:10px 16px 14px;
+  display:none;
+}
+.fix-area.open{display:block;}
+.fix-input{
+  width:100%;background:var(--ink2);border:1px solid var(--mist3);
+  border-radius:10px;padding:10px 14px;
+  font-family:var(--serif);font-size:14px;color:var(--cream);
+  resize:none;outline:none;line-height:1.6;
+  transition:border-color .2s;
+}
+.fix-input:focus{border-color:rgba(200,169,110,.4);}
+.fix-input::placeholder{color:var(--mist2);}
+.fix-btns{display:flex;gap:8px;margin-top:8px;}
+.fix-btn{
+  height:36px;border-radius:18px;border:none;
+  font-family:var(--sans);font-size:12px;font-weight:500;
+  cursor:pointer;transition:opacity .15s;padding:0 16px;
+}
+.fix-btn:active{opacity:.7;}
+.fix-confirm{background:var(--gold);color:var(--night);flex:1;}
+.fix-cancel{background:var(--mist3);color:var(--mist);}
+
+/* ═══════════════════════════════════════════════
+   确认后的钩子：下一步诱惑
+═══════════════════════════════════════════════ */
+.hook-section{
+  margin:8px 20px 0;
+  animation-delay:.4s;
+}
+.hook-label{
+  font-size:10px;font-weight:500;letter-spacing:.15em;
+  color:var(--mist2);margin-bottom:12px;padding-top:12px;
+}
+
+/* 功能预览卡 */
+.feature-cards{display:flex;flex-direction:column;gap:10px;}
+
+.feature-card{
+  border-radius:14px;overflow:hidden;cursor:pointer;
+  transition:transform .15s,opacity .15s;
+  position:relative;
+  border:1px solid var(--mist3);
+}
+.feature-card:active{transform:scale(.98);opacity:.9;}
+
+/* 锁定遮罩 */
+.fc-lock{
+  position:absolute;top:12px;right:12px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(13,12,10,.6);
+  display:flex;align-items:center;justify-content:center;
+}
+
+.fc-body{padding:16px;}
+.fc-eyebrow{font-size:10px;font-weight:500;letter-spacing:.1em;margin-bottom:6px;}
+.fc-title{font-family:var(--serif);font-size:17px;font-weight:400;
+  color:var(--cream);margin-bottom:5px;line-height:1.4;}
+.fc-desc{font-size:12px;color:var(--mist2);line-height:1.6;}
+
+/* 卡片变体 */
+.fc-map{
+  background:linear-gradient(135deg,#1a2818 0%,#0d1a12 100%);
+  border-color:rgba(78,207,168,.2);
+}
+.fc-map .fc-eyebrow{color:var(--teal);}
+
+.fc-story{
+  background:linear-gradient(135deg,#1a1608 0%,#0d0c00 100%);
+  border-color:rgba(200,169,110,.2);
+}
+.fc-story .fc-eyebrow{color:var(--gold);}
+
+.fc-history{
+  background:linear-gradient(135deg,#1a0e08 0%,#0d0800 100%);
+  border-color:rgba(232,122,90,.2);
+}
+.fc-history .fc-eyebrow{color:var(--coral);}
+
+.fc-prob{
+  background:linear-gradient(135deg,#0e0e1a 0%,#08080d 100%);
+  border-color:rgba(174,160,230,.2);
+}
+.fc-prob .fc-eyebrow{color:#aea0e6;}
+
+/* 预览数字（吸引力元素） */
+.fc-stat{
+  margin-top:10px;
+  display:flex;gap:16px;
+}
+.fc-stat-item{display:flex;flex-direction:column;}
+.fc-stat-num{font-size:20px;font-weight:500;line-height:1;margin-bottom:2px;}
+.fc-stat-label{font-size:10px;color:var(--mist2);}
+
+/* 地图预览 miniature */
+.fc-map-preview{
+  height:64px;margin-top:10px;
+  background:rgba(0,0,0,.3);border-radius:8px;
+  overflow:hidden;position:relative;
+}
+
+/* 解锁提示 */
+.unlock-hint{
+  display:flex;align-items:center;gap:6px;margin-top:10px;
+  font-size:11px;color:var(--mist2);
+}
+.unlock-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0;}
+
+/* ═══════════════════════════════════════════════
+   底部 CTA
+═══════════════════════════════════════════════ */
+.bottom-cta{
+  flex-shrink:0;
+  padding:16px 20px max(env(safe-area-inset-bottom),20px);
+  background:linear-gradient(transparent,rgba(13,12,10,.98) 30%);
+  display:flex;gap:10px;
+}
+.cta-main{
+  flex:1;height:52px;border-radius:26px;border:none;
+  background:var(--gold);color:var(--night);
+  font-family:var(--sans);font-size:14px;font-weight:500;
+  cursor:pointer;transition:opacity .15s;letter-spacing:.03em;
+}
+.cta-main:active{opacity:.85;}
+.cta-sec{
+  width:52px;height:52px;border-radius:50%;border:none;
+  background:var(--mist3);
+  cursor:pointer;transition:opacity .15s;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.cta-sec:active{opacity:.7;}
+
+/* ─ toast ─ */
+.toast{
+  position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:rgba(240,235,224,.1);backdrop-filter:blur(12px);
+  border:1px solid var(--mist3);border-radius:20px;
+  padding:10px 20px;font-size:12px;color:var(--cream);
+  white-space:nowrap;opacity:0;transition:all .3s;pointer-events:none;z-index:999;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ─ 确认打勾动画 ─ */
+.check-anim{
+  display:inline-flex;width:20px;height:20px;
+  border-radius:50%;background:var(--teal);
+  align-items:center;justify-content:center;
+  animation:checkPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes checkPop{from{transform:scale(0);}to{transform:scale(1);}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 导航 -->
+  <div class="nav">
+    <div class="nav-logo">寻·根</div>
+    <div class="nav-title">确认你的故事</div>
+    <div class="nav-skip" onclick="skipAll()">跳过</div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="main" id="main">
+
+    <!-- 导言 -->
+    <div class="intro-card fade-up">
+      <div class="intro-eyebrow">AI 理解结果</div>
+      <div class="intro-text">我听到了你的故事。<br>帮我确认一下，理解得对吗？</div>
+      <div class="intro-sub">点击任意条目查看详情，有误差没关系——你来纠正，我来完善。</div>
+    </div>
+
+    <!-- AI 解析的迁徙条目 -->
+    <div class="section-label fade-up" style="animation-delay:.15s;">识别到的迁徙路径</div>
+
+    <!-- 条目1：有问题（年份不确定） -->
+    <div class="migration-card has-issue fade-up" style="animation-delay:.2s;"
+         id="card-0" onclick="toggleCard(0)">
+      <div class="mc-head">
+        <div class="mc-icon warn">?</div>
+        <div class="mc-info">
+          <div class="mc-route">双城县 → 北京（清华大学）</div>
+          <div class="mc-meta">父亲 · 约1960年代 · 求学</div>
+        </div>
+        <div class="mc-action" id="action-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="rgba(240,235,224,.4)" stroke-width="2" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mc-issue" id="issue-0">
+        <div class="issue-bubble">
+          <div class="issue-label">我不太确定的地方</div>
+          <div class="issue-text">你说「1970年毕业」，我推算入学约在1960年代，但具体年份不确定。如果你知道，点下方告诉我。</div>
+        </div>
+      </div>
+      <div class="fix-area" id="fix-0">
+        <textarea class="fix-input" rows="2"
+          placeholder="例：我爸1964年考上清华，读了六年……"></textarea>
+        <div class="fix-btns">
+          <button class="fix-btn fix-cancel" onclick="cancelFix(event,0)">先这样</button>
+          <button class="fix-btn fix-confirm" onclick="confirmFix(event,0)">更新</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 条目2：正确 -->
+    <div class="migration-card fade-up" style="animation-delay:.28s;"
+         id="card-1" onclick="toggleCard(1)">
+      <div class="mc-head">
+        <div class="mc-icon ok">✓</div>
+        <div class="mc-info">
+          <div class="mc-route">北京 → 辽宁铁岭县</div>
+          <div class="mc-meta">父母 · 1970年 · 毕业分配</div>
+        </div>
+        <div class="mc-action" id="action-1">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="rgba(240,235,224,.4)" stroke-width="2" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mc-issue" id="issue-1">
+        <div class="issue-bubble" style="border-color:rgba(78,207,168,.2);background:rgba(78,207,168,.05);">
+          <div class="issue-label" style="color:var(--teal);">看起来没问题</div>
+          <div class="issue-text">1970年，清华毕业后被分配到铁岭山村。如果有补充，直接告诉我。</div>
+        </div>
+      </div>
+      <div class="fix-area" id="fix-1">
+        <textarea class="fix-input" rows="2"
+          placeholder="补充更多细节……"></textarea>
+        <div class="fix-btns">
+          <button class="fix-btn fix-cancel" onclick="cancelFix(event,1)">取消</button>
+          <button class="fix-btn fix-confirm" onclick="confirmFix(event,1)">补充</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 条目3：有错误（识别错地名） -->
+    <div class="migration-card has-issue fade-up" style="animation-delay:.36s;"
+         id="card-2" onclick="toggleCard(2)">
+      <div class="mc-head">
+        <div class="mc-icon err">!</div>
+        <div class="mc-info">
+          <div class="mc-route">铁岭 → 北京（长期定居）</div>
+          <div class="mc-meta">本人 · 年份待确认 · 工作迁居</div>
+        </div>
+        <div class="mc-action" id="action-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="rgba(240,235,224,.4)" stroke-width="2" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mc-issue" id="issue-2">
+        <div class="issue-bubble" style="border-color:rgba(232,122,90,.2);background:rgba(232,122,90,.05);">
+          <div class="issue-label" style="color:var(--coral);">有一处我没听清楚</div>
+          <div class="issue-text">你去北京是哪一年？你说「大学毕业后」，但我不知道具体是什么时候。这个信息对绘制时间轴很重要。</div>
+        </div>
+      </div>
+      <div class="fix-area" id="fix-2">
+        <textarea class="fix-input" rows="2"
+          placeholder="例：我1992年大学毕业，那年直接去了北京……"></textarea>
+        <div class="fix-btns">
+          <button class="fix-btn fix-cancel" onclick="cancelFix(event,2)">先跳过</button>
+          <button class="fix-btn fix-confirm" onclick="confirmFix(event,2)">告诉你</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 确认数量 -->
+    <div style="padding:12px 20px 0;font-size:11px;color:var(--mist2);
+      display:flex;align-items:center;justify-content:center;gap:6px;"
+      id="confirm-status">
+      <span id="confirm-count">0</span> / 3 条已确认
+      <div style="flex:1;height:1px;background:var(--mist3);max-width:80px;margin-left:6px;border-radius:1px;">
+        <div id="confirm-bar" style="height:100%;background:var(--gold);border-radius:1px;width:0%;transition:width .4s;"></div>
+      </div>
+    </div>
+
+    <!-- ═══ 功能钩子区 ═══ -->
+    <div class="hook-section fade-up" style="animation-delay:.5s;" id="hook-section">
+      <div class="hook-label">确认后即可解锁</div>
+      <div class="feature-cards">
+
+        <!-- 1. 迁徙动画地图（主钩子，最先解锁） -->
+        <div class="feature-card fc-map" onclick="unlockFeature('map')">
+          <div class="fc-lock" id="lock-map">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="rgba(240,235,224,.5)" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <div class="fc-body">
+            <div class="fc-eyebrow">骨架 07 · 地理归属</div>
+            <div class="fc-title">家族迁徙动画地图</div>
+            <div class="fc-desc">将你的家族故事绘制成动态地图——从双城出发，路过北京、铁岭，最终落回北京。</div>
+            <div class="fc-map-preview" id="map-preview">
+              <svg width="100%" height="64" viewBox="0 0 340 64">
+                <path d="M 280,12 C 250,28 210,38 170,42 C 140,44 120,46 100,48 C 80,50 60,52 40,55"
+                  fill="none" stroke="rgba(78,207,168,.3)" stroke-width="1.2" stroke-dasharray="3 3"/>
+                <circle cx="280" cy="12" r="3" fill="rgba(200,169,110,.6)"/>
+                <circle cx="170" cy="42" r="4" fill="rgba(78,207,168,.6)"/>
+                <circle cx="40"  cy="55" r="3" fill="rgba(232,122,90,.5)"/>
+                <text x="285" y="10" font-size="7" fill="rgba(200,169,110,.5)"
+                  font-family="'Noto Serif SC'">双城</text>
+                <text x="155" y="37" font-size="8" fill="rgba(78,207,168,.7)"
+                  font-family="'Noto Serif SC'">北京</text>
+              </svg>
+            </div>
+            <div class="unlock-hint">
+              <div class="unlock-dot"></div>
+              确认任意1条迁徙路径后解锁
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 家族史诗叙事 -->
+        <div class="feature-card fc-story" onclick="unlockFeature('story')">
+          <div class="fc-lock" id="lock-story">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="rgba(240,235,224,.5)" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <div class="fc-body">
+            <div class="fc-eyebrow">骨架 01 · 被记住</div>
+            <div class="fc-title">家族史诗叙事</div>
+            <div class="fc-desc">AI 用文学笔法重新讲述你的家族故事——「他不知道，四百年后，他的血脉会走到你现在站的地方。」</div>
+            <div class="fc-stat">
+              <div class="fc-stat-item">
+                <div class="fc-stat-num" style="color:var(--gold);">5</div>
+                <div class="fc-stat-label">叙事章节</div>
+              </div>
+              <div class="fc-stat-item">
+                <div class="fc-stat-num" style="color:var(--gold);">120年</div>
+                <div class="fc-stat-label">时间跨度</div>
+              </div>
+            </div>
+            <div class="unlock-hint">
+              <div class="unlock-dot"></div>
+              确认全部路径后解锁
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 历史事件叠加（最强的那个） -->
+        <div class="feature-card fc-history" onclick="unlockFeature('history')">
+          <div class="fc-lock" id="lock-history">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="rgba(240,235,224,.5)" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <div class="fc-body">
+            <div class="fc-eyebrow">骨架 09 · 历史接榫</div>
+            <div class="fc-title">祖先出现在历史里</div>
+            <div class="fc-desc">1970年，你的父亲在北京。那一年地图上同时出现：上山下乡运动。你的家族，与历史的交汇点。</div>
+            <div style="margin-top:10px;padding:8px 12px;background:rgba(232,122,90,.08);
+              border:1px solid rgba(232,122,90,.15);border-radius:8px;font-size:11px;
+              color:rgba(232,122,90,.8);line-height:1.5;">
+              已匹配 2 个历史事件<br>
+              <span style="opacity:.6;">日俄战争 · 上山下乡运动</span>
+            </div>
+            <div class="unlock-hint">
+              <div class="unlock-dot"></div>
+              补充年份信息后解锁
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 存在概率报告（最终彩蛋） -->
+        <div class="feature-card fc-prob" onclick="unlockFeature('prob')"
+             style="margin-bottom:20px;">
+          <div class="fc-lock" id="lock-prob">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                 stroke="rgba(240,235,224,.5)" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <div class="fc-body">
+            <div class="fc-eyebrow">骨架 09 · 渺小与壮阔</div>
+            <div class="fc-title">你存在的概率</div>
+            <div class="fc-desc">从你的第一位可追溯祖先到你，每一代人都必须在正确的时间遇见正确的人。任何一次失败，你就不存在。</div>
+            <div style="margin-top:10px;font-family:'Noto Serif SC';font-size:13px;
+              color:rgba(174,160,230,.6);line-height:1.8;font-style:italic;">
+              「你不是偶然出现的，<br>你是无数人用整个生命换来的。」
+            </div>
+            <div class="unlock-hint" style="margin-top:12px;">
+              <div class="unlock-dot" style="background:#aea0e6;"></div>
+              邀请一位家人加入后解锁
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /hook-section -->
+
+  </div><!-- /main -->
+
+  <!-- 底部 CTA -->
+  <div class="bottom-cta">
+    <button class="cta-sec" onclick="voiceMore()" title="继续语音补充">
+      <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+        <rect x="11" y="4" width="10" height="16" rx="5" fill="none"
+              stroke="rgba(240,235,224,.7)" stroke-width="1.5"/>
+        <path d="M6 17c0 5.523 4.477 10 10 10s10-4.477 10-10"
+              stroke="rgba(240,235,224,.5)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <line x1="16" y1="27" x2="16" y2="31"
+              stroke="rgba(240,235,224,.4)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="cta-main" id="cta-main" onclick="generateMap()">
+      生成迁徙地图
+    </button>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── 状态 ── */
+let confirmedCount = 0;
+const cardStates = [false, false, false]; // 是否已确认
+
+/* ── 展开/收起卡片 ── */
+function toggleCard(idx) {
+  const issue = document.getElementById('issue-' + idx);
+  const fix   = document.getElementById('fix-'   + idx);
+  const isOpen = issue.classList.contains('open');
+
+  // 收起所有
+  document.querySelectorAll('.mc-issue,.fix-area').forEach(el => el.classList.remove('open'));
+
+  if (!isOpen) {
+    issue.classList.add('open');
+    fix.classList.add('open');
+    // 聚焦输入框
+    setTimeout(() => fix.querySelector('textarea')?.focus(), 100);
+  }
+}
+
+function cancelFix(e, idx) {
+  e.stopPropagation();
+  document.getElementById('issue-' + idx).classList.remove('open');
+  document.getElementById('fix-'   + idx).classList.remove('open');
+}
+
+function confirmFix(e, idx) {
+  e.stopPropagation();
+  const input = document.getElementById('fix-' + idx).querySelector('textarea');
+  // 即使没有输入也算确认（用户看了，认为没问题）
+
+  // 更新卡片状态
+  const card = document.getElementById('card-' + idx);
+  card.classList.remove('has-issue');
+  card.classList.add('confirmed');
+
+  // 换图标为绿色勾
+  const icon = card.querySelector('.mc-icon');
+  icon.className = 'mc-icon ok';
+  icon.innerHTML = '<div class="check-anim">✓</div>';
+
+  // 更新箭头图标为勾
+  const action = document.getElementById('action-' + idx);
+  action.style.background = 'rgba(78,207,168,.15)';
+  action.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round">
+    <polyline points="20 6 9 17 4 12"/></svg>`;
+
+  // 收起
+  document.getElementById('issue-' + idx).classList.remove('open');
+  document.getElementById('fix-'   + idx).classList.remove('open');
+
+  if (!cardStates[idx]) {
+    cardStates[idx] = true;
+    confirmedCount++;
+    updateProgress();
+  }
+
+  // 有输入时显示 toast
+  if (input.value.trim()) {
+    showToast('已更新，地图正在调整…');
+  } else {
+    showToast('好的，已确认这段路径 ✓');
+  }
+}
+
+function updateProgress() {
+  const pct = (confirmedCount / 3) * 100;
+  document.getElementById('confirm-count').textContent = confirmedCount;
+  document.getElementById('confirm-bar').style.width = pct + '%';
+
+  // 1条：解锁地图
+  if (confirmedCount >= 1) unlockCard('map');
+  // 2条：解锁历史
+  if (confirmedCount >= 2) unlockCard('history');
+  // 3条：解锁叙事
+  if (confirmedCount >= 3) {
+    unlockCard('story');
+    // CTA 变色
+    document.getElementById('cta-main').textContent = '查看完整家族史诗 →';
+    document.getElementById('cta-main').style.background = 'linear-gradient(90deg, var(--gold), var(--gold2))';
+  }
+}
+
+function unlockCard(name) {
+  const lock = document.getElementById('lock-' + name);
+  if (!lock) return;
+  lock.style.transition = 'all .4s cubic-bezier(.34,1.56,.64,1)';
+  lock.style.transform = 'scale(0)';
+  lock.style.opacity = '0';
+  setTimeout(() => lock.remove(), 400);
+}
+
+/* ── 功能点击 ── */
+function unlockFeature(name) {
+  const msgs = {
+    map:     '地图正在生成，稍候片刻…',
+    story:   '继续确认剩余路径，即可解锁叙事',
+    history: '补充年份后即可看到历史事件匹配',
+    prob:    '邀请一位家人加入后解锁这个彩蛋',
+  };
+  showToast(msgs[name] || '即将解锁');
+}
+
+/* ── 其他操作 ── */
+function skipAll() {
+  showToast('已跳过，直接生成地图');
+  setTimeout(generateMap, 800);
+}
+
+function voiceMore() {
+  showToast('继续说，我在听…（接入 FunASR）');
+}
+
+function generateMap() {
+  showToast('🗺  正在生成家族迁徙地图…');
+  // 实际接入：调用后端 /amapapi/migration-map
+}
+
+/* ── Toast ── */
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
