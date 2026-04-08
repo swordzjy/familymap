@@ -217,20 +217,21 @@ async function init() {
     return;
   }
   try {
+    // 获取迁徙数据（包含 paths、persons、historicalEvents）
     const mapRes = await fetch(`${API_BASE}/amapapi/migration-map/${FAMILY_ID}`);
     if (!mapRes.ok) throw new Error('数据加载失败');
     const mapData = await mapRes.json();
-    const storyRes = await fetch(`${API_BASE}/amapapi/story-chapters/${FAMILY_ID}`);
-    let storyChapters = [];
-    if (storyRes.ok) {
-      const storyData = await storyRes.json();
-      storyChapters = storyData.chapters || [];
-    }
+
+    // 使用 migrations 数据生成章节（story_chapters 表可能为空）
+    const chapters = generateChaptersFromPaths(mapData.paths, mapData.historicalEvents);
+
     STORY_DATA = {
       familyName: mapData.familyName || '家族',
       paths: mapData.paths || [],
-      chapters: storyChapters
+      chapters: chapters,
+      historicalEvents: mapData.historicalEvents || []
     };
+
     renderMap();
     renderChapters();
     renderMoment();
@@ -239,6 +240,86 @@ async function init() {
     console.error('初始化失败:', err);
     showError('数据加载失败，请检查网络连接或重试');
   }
+}
+
+// 从迁徙路径生成章节
+function generateChaptersFromPaths(paths, events) {
+  if (!paths || paths.length === 0) return [];
+
+  const chapters = [];
+  const eventsMap = new Map();
+  if (events) {
+    events.forEach(e => eventsMap.set(e.migration_id, e.events));
+  }
+
+  // 序章：起点
+  if (paths.length > 0) {
+    const first = paths[0];
+    chapters.push({
+      beat_type: 'anchor',
+      narration: `${first.from_place || '远方'}。\n\n${first.year || '未知年份'}。有一个人，在那里。\n\n他不知道，他的后代会有一天在遥远的地方生活。`,
+      map_action: { place: first.from_place, year: first.year }
+    });
+  }
+
+  // 每段迁徙作为一个章节
+  paths.forEach((p, idx) => {
+    const chapter = {
+      beat_type: getBeatType(p.reason_type),
+      narration: generateNarration(p, idx),
+      map_action: { place: p.to_place, year: p.year }
+    };
+
+    // 添加历史背景
+    const histEvents = eventsMap.get(p.id);
+    if (histEvents && histEvents.length > 0) {
+      chapter.historical_context = histEvents[0].description;
+    }
+
+    chapters.push(chapter);
+  });
+
+  // 终章：抵达
+  if (paths.length > 0) {
+    const last = paths[paths.length - 1];
+    const years = paths.map(p => p.year).filter(y => y);
+    const span = years.length > 0 ? Math.max(...years) - Math.min(...years) : 0;
+    chapters.push({
+      beat_type: 'arrival',
+      narration: `从${paths[0].from_place}到${last.to_place}。\n\n${paths.length}段迁徙，${span}年岁月。\n\n所有这一切，指向了你。`,
+      map_action: { place: last.to_place, year: '今日' }
+    });
+  }
+
+  return chapters;
+}
+
+function getBeatType(reasonType) {
+  const map = {
+    'study': 'choice',
+    'work': 'choice',
+    'war': 'danger',
+    'disaster': 'danger',
+    'assignment': 'choice',
+    'family': 'person',
+    'unknown': 'silence'
+  };
+  return map[reasonType] || 'silence';
+}
+
+function generateNarration(p, idx) {
+  const from = p.from_place || '此地';
+  const to = p.to_place || '远方';
+  const year = p.year || '未知年份';
+  const person = p.person_role || '他';
+  const reason = p.reason || '';
+
+  const templates = [
+    `${year}，${person}从${from}到了${to}。\n\n${reason}。`,
+    `那一年是${year}。${person}离开了${from}，来到了${to}。`,
+    `从${from} → ${to}。\n\n${year}。${reason}`,
+  ];
+  return templates[idx % templates.length];
 }
 
 function showError(msg) {
