@@ -36,13 +36,16 @@ class AmapClient {
    * 地理编码：地名 → 经纬度
    * 文档: https://lbs.amap.com/api/webservice/guide/api/georegeo
    */
-  async geocode(address) {
+  async geocode(address, city = "") {
     if (!address) return null;
     if (this._cache.has(address)) return this._cache.get(address);
 
     try {
+      const params = this._params({ address });
+      if (city) params.city = city;
+
       const res = await axios.get(`${RESTAPI_BASE}/v3/geocode/geo`, {
-        params:  this._params({ address }),
+        params,
         timeout: 6000,
       });
 

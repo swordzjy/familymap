@@ -163,6 +163,18 @@ const FALLBACK_COORDS = {
   '辽宁省铁岭市':    { longitude: 123.844, latitude: 42.223, normalized_name: '辽宁省铁岭市' },
 };
 
+// 从地名中提取城市信息（用于高德 API city 参数，提高匹配准确性）
+function extractCityFromPlace(placeName) {
+  if (!placeName) return '';
+  // 匹配省级行政区 + 城市名，如 "黑龙江省双城" → "黑龙江省"
+  const provinceMatch = placeName.match(/^(广东省 | 广西省 | 四川省 | 贵州省 | 云南省 | 陕西省 | 甘肃省 | 青海省 | 湖南省 | 湖北省 | 河北省 | 河南省 | 山东省 | 山西省 | 江苏省 | 浙江省 | 安徽省 | 福建省 | 江西省 | 黑龙江省 | 吉林省 | 辽宁省)(.*)$/);
+  if (provinceMatch) return provinceMatch[1];
+  // 匹配城市名，如 "哈尔滨市双城" → "哈尔滨市"
+  const cityMatch = placeName.match(/^(北京市 | 天津市 | 上海市 | 重庆市 | 哈尔滨市 | 长春市 | 沈阳市 | 大连市 | 石家庄市 | 太原市 | 济南市 | 青岛市 | 南京市 | 杭州市 | 合肥市 | 福州市 | 南昌市 | 郑州市 | 武汉市 | 长沙市 | 广州市 | 深圳市 | 南宁市 | 海口市 | 成都市 | 贵阳市 | 昆明市 | 西安市 | 兰州市 | 西宁市)(.*)$/);
+  if (cityMatch) return cityMatch[1];
+  return '';
+}
+
 async function geocodePlace(placeName) {
   if (!placeName) return null;
 
@@ -184,9 +196,14 @@ async function geocodePlace(placeName) {
     log.warn(`地名缓存查询失败 (${placeName}):`, dbErr.message);
   }
 
-  // 2. 高德 API
-  log.info(`调用高德地理编码: "${placeName}"`);
-  const geo = await amapClient.geocode(placeName);
+  // 2. 高德 API（尝试提取城市信息以提高准确性）
+  const city = extractCityFromPlace(placeName);
+  if (city) {
+    log.info(`调用高德地理编码："${placeName}" city="${city}"`);
+  } else {
+    log.info(`调用高德地理编码："${placeName}"`);
+  }
+  const geo = await amapClient.geocode(placeName, city);
 
   if (!geo) {
     // 先精确匹配 fallback
