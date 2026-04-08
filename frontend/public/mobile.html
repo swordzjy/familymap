@@ -422,14 +422,11 @@ function renderUserPaths(data) {
   legendEl.innerHTML = legendHtml;
 
   // 清除旧标记
-  state.markers.forEach(m => m.remove());
   state.polylines.forEach(p => p.remove());
-  state.markers = [];
   state.polylines = [];
 
-  // 创建路径和标记
+  // 创建路径
   const polylines = [];
-  const markerPairs = [];
 
   sorted.forEach((path, idx) => {
     const person = personMap[path.person_internal_id] || personMap[path.person_id];
@@ -463,27 +460,10 @@ function renderUserPaths(data) {
     line.setMap(state.amapInstance);
     polylines.push(line);
     state.polylines.push(line);
-
-    const fromWrap = createCityMarkerEl(fromPlace, color, false);
-    const fromMk = new AMap.Marker({
-      position: from,
-      content: fromWrap,
-      anchor: 'bottom-center',
-    });
-    const toWrap = createCityMarkerEl(toPlace, color, idx === sorted.length - 1);
-    const toMk = new AMap.Marker({
-      position: to,
-      content: toWrap,
-      anchor: 'bottom-center',
-    });
-    fromMk.setMap(state.amapInstance);
-    toMk.setMap(state.amapInstance);
-    markerPairs.push({ fromWrap, toWrap, fromMk, toMk });
-    state.markers.push(fromMk, toMk);
   });
 
   // 调整视野
-  state.amapInstance.setFitView(state.markers, false, [60, 60, 100, 120]);
+  state.amapInstance.setFitView(polylines, false, [60, 60, 100, 120]);
 
   // 设置返回链接（带 familyId）
   const backLink = document.getElementById('back-link');
@@ -492,7 +472,7 @@ function renderUserPaths(data) {
   }
 
   // 开始动画
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1200);
+  setTimeout(() => startPathSequence(sorted, polylines, personMap), 1200);
 }
 
 // ============================================================
@@ -511,62 +491,9 @@ function generateCurve(from, to, mid, steps) {
 }
 
 // ============================================================
-// 创建城市标记元素
-// ============================================================
-function createCityMarkerEl(placeName, color, isLast) {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = `
-    opacity:0;transform:translateY(8px);
-    display:flex;flex-direction:column;align-items:center;
-    cursor:pointer;
-  `;
-
-  const dotSize = isLast ? '16px' : '11px';
-  const glow = isLast ? `0 0 18px ${color}aa` : `0 0 10px ${color}66`;
-
-  wrap.innerHTML = `
-    <div style="
-      width:${dotSize};height:${dotSize};border-radius:50%;
-      background:${color};
-      border:2px solid rgba(9,8,6,.85);
-      box-shadow:${glow};
-      ${isLast ? 'animation:termPulse 3.5s ease-in-out infinite;' : ''}
-    "></div>
-    <div style="
-      margin-top:5px;font-family:'Noto Serif SC',serif;
-      font-size:12px;color:${color};white-space:nowrap;
-      background:rgba(9,8,6,.85);
-      padding:4px 8px;border-radius:8px;
-      border:1px solid ${color}55;
-      letter-spacing:.03em;
-      max-width:120px;
-    ">${placeName || ''}</div>
-  `;
-
-  if (isLast && !document.getElementById('term-pulse-style')) {
-    const st = document.createElement('style');
-    st.id = 'term-pulse-style';
-    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 12px ${color}77;}50%{box-shadow:0 0 28px ${color}cc;}}`;
-    document.head.appendChild(st);
-  }
-
-  return wrap;
-}
-
-// ============================================================
-// 显示标记
-// ============================================================
-function showMarker(wrap) {
-  if (!wrap) return;
-  wrap.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
-  wrap.style.opacity = '1';
-  wrap.style.transform = 'translateY(0)';
-}
-
-// ============================================================
 // 路径动画序列
 // ============================================================
-function startPathSequence(sorted, polylines, markerPairs, personMap) {
+function startPathSequence(sorted, polylines, personMap) {
   if (state.isAnimating) return;
   state.isAnimating = true;
 
@@ -577,7 +504,6 @@ function startPathSequence(sorted, polylines, markerPairs, personMap) {
   sorted.forEach((path, idx) => {
     const person = personMap[path.person_internal_id] || personMap[path.person_id];
 
-    setTimeout(() => showMarker(markerPairs[idx].fromWrap), delay);
     setTimeout(() => {
       showEvent(path, person);
     }, delay + 500);
@@ -585,7 +511,6 @@ function startPathSequence(sorted, polylines, markerPairs, personMap) {
     setTimeout(() => drawLineAnimate(polylines[idx], DRAW_MS), lineDelay);
     setTimeout(() => {
       hideEvent();
-      showMarker(markerPairs[idx].toWrap);
     }, lineDelay + DRAW_MS);
     delay = lineDelay + DRAW_MS + 1500;
   });
@@ -594,24 +519,17 @@ function startPathSequence(sorted, polylines, markerPairs, personMap) {
   setTimeout(() => {
     state.isAnimating = false;
     setTimeout(() => {
-      resetAnimation(sorted, polylines, markerPairs, personMap);
+      resetAnimation(sorted, polylines, personMap);
     }, 3000);
   }, delay);
 }
 
 // 重置动画
-function resetAnimation(sorted, polylines, markerPairs, personMap) {
-  state.markers.forEach(m => {
-    const content = m.getContent();
-    if (content && content.style) {
-      content.style.opacity = '0';
-      content.style.transform = 'translateY(8px)';
-    }
-  });
+function resetAnimation(sorted, polylines, personMap) {
   state.polylines.forEach(p => p.setOptions({ strokeOpacity: 0 }));
   hideEvent();
 
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1000);
+  setTimeout(() => startPathSequence(sorted, polylines, personMap), 1000);
 }
 
 // ============================================================
