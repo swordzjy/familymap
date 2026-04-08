@@ -436,6 +436,9 @@ ${conversationText}`;
     for (const m of data.migrations) {
       log.info(`[extract] 处理迁徙: ${m.from_place} → ${m.to_place}  year=${m.year}`);
 
+      // 验证 reason_type 必须是预定义的枚举值
+      const VALID_REASON_TYPES = ['study', 'work', 'war', 'disaster', 'assignment', 'family', 'unknown'];
+      const sanitizedReasonType = VALID_REASON_TYPES.includes(m.reason_type) ? m.reason_type : 'unknown';
       const fromGeo = await geocodePlace(m.from_place);
       const toGeo   = await geocodePlace(m.to_place);
 
@@ -447,6 +450,9 @@ ${conversationText}`;
         log.warn(`[extract] 找不到 person_internal_id=${m.person_internal_id}，跳过此迁徙`);
         continue;
       }
+
+      // 使用服务端规则计算 emotion_weight，不依赖 LLM 主观判断
+      const emotionWeight = resolveEmotionWeight(sanitizedReasonType, m.year, null);
 
       await db.query(
         `INSERT INTO migrations
@@ -460,8 +466,8 @@ ${conversationText}`;
           toPlace.rows[0]?.id,
           m.from_place, m.to_place,
           m.year, m.year_approx || false,
-          m.reason, m.reason_type,
-          m.emotion_weight, m.sequence_order,
+          m.reason, sanitizedReasonType,
+          emotionWeight, m.sequence_order,
         ]
       );
       log.db(`[extract] 迁徙已入库: ${m.from_place} → ${m.to_place}`);
@@ -1191,6 +1197,59 @@ const AGENT_SYSTEM = `你是"寻根"平台的家族故事采集助手。你通�
 
 【重要约束】工具调用在后台静默执行，绝不向用户说"我正在保存"之类的话，直接继续对话。`;
 
+
+// ============================================================
+// 迁徙情感权重推断（服务端规则，不依赖 LLM 主观判断）
+// ============================================================
+function resolveEmotionWeight(reasonType, year, ctx) {
+  // ── 第一优先级：reason_type 直接决定 ──────────────────────
+  const HIGH_TYPES = new Set(['war', 'disaster']);
+  const LOW_TYPES  = new Set(['family']);   // 纯家庭团聚，情感平稳
+
+  if (HIGH_TYPES.has(reasonType)) return 'high';
+  if (LOW_TYPES.has(reasonType))  return 'low';
+
+  // ── 第二优先级：历史年份区间 ──────────────────────────────
+  if (year) {
+    // 重大历史节点区间 → high
+    const HIGH_PERIODS = [
+      [1937, 1945],  // 抗战
+      [1959, 1961],  // 三年困难时期
+      [1966, 1976],  // 文化大革命
+      [1927, 1936],  // 民国战乱 / 闯关东高峰
+      [1949, 1952],  // 解放战争尾声 / 土改
+    ];
+    for (const [s, e] of HIGH_PERIODS) {
+      if (year >= s && year <= e) {
+        log.ai(`[emotion] year=${year} 落入历史高权重区间 [${s}-${e}] → high`);
+        return 'high';
+      }
+    }
+
+    // 社会变迁节点 → medium（已是默认，但明确列出便于维护）
+    const MEDIUM_PERIODS = [
+      [1953, 1958],  // 一五计划 / 三线建设前期
+      [1977, 1985],  // 改革开放初期
+      [1992, 2005],  // 市场经济 / 大学扩招 / 下岗潮
+    ];
+    for (const [s, e] of MEDIUM_PERIODS) {
+      if (year >= s && year <= e) {
+        log.ai(`[emotion] year=${year} 落入社会变迁区间 [${s}-${e}] → medium`);
+        return 'medium';
+      }
+    }
+  }
+
+  // ── 第三优先级：reason_type 细分 ──────────────────────────
+  const MEDIUM_TYPES = new Set(['work', 'assignment', 'unknown']);
+  const LOW_MEDIUM_TYPES = new Set(['study']);
+
+  if (MEDIUM_TYPES.has(reasonType))      return 'medium';
+  if (LOW_MEDIUM_TYPES.has(reasonType))  return 'low';
+
+  // ── 兜底 ──────────────────────────────────────────────────
+  return 'medium';
+}
 // ============================================================
 // ★ AGENT：工具执行器
 // ============================================================
@@ -1228,7 +1287,8 @@ async function executeAgentTool(toolName, toolInput, ctx) {
         log.db(`[agent] 新建 family_profile  id=${ctx.familyId}`);
       }
 
-      const iid = `p_${role}_${Date.now()}`;
+      //const iid = `p_${role}_${Date.now()}`;
+      const iid = 'p' + Date.now().toString(36);  // 固定9位，永不超限
       const r = await db.query(
         `INSERT INTO persons (family_id, internal_id, role, name, birth_year, birth_place, occupation, generation)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
@@ -1251,6 +1311,10 @@ async function executeAgentTool(toolName, toolInput, ctx) {
         return { ok: false, error: 'family_id 尚未创建，请先保存至少一个人物' };
       }
 
+      // 验证 reason_type 必须是预定义的枚举值
+      const VALID_REASON_TYPES = ['study', 'work', 'war', 'disaster', 'assignment', 'family', 'unknown'];
+      const sanitizedReasonType = VALID_REASON_TYPES.includes(reason_type) ? reason_type : 'unknown';
+
       // 自动递增 sequence_order
       const seqR = await db.query(
         `SELECT COALESCE(MAX(sequence_order), 0) + 1 AS n FROM migrations WHERE family_id = $1`,
@@ -1268,19 +1332,22 @@ async function executeAgentTool(toolName, toolInput, ctx) {
       const toRow = to_place
         ? await db.query('SELECT id FROM places WHERE raw_name=$1', [to_place])
         : { rows: [] };
-
+      const emotionWeight = resolveEmotionWeight(sanitizedReasonType, year, ctx);  
       await db.query(
+        // save_migration case 内，INSERT 之前插入这段
+        // INSERT 语句把 'medium' 改为变量
         `INSERT INTO migrations
-           (family_id, person_id, from_place_id, to_place_id,
+          (family_id, person_id, from_place_id, to_place_id,
             from_place_raw, to_place_raw, year, year_approx,
             reason, reason_type, emotion_weight, sequence_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'medium',$11)`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           ctx.familyId, personId,
           fromRow.rows[0]?.id || null, toRow.rows[0]?.id || null,
           from_place || null, to_place,
           year || null, year_approx || false,
-          reason || null, reason_type || 'unknown',
+          reason || null, sanitizedReasonType,
+          emotionWeight,   // ← 原来是写死的 'medium'
           seq,
         ]
       );
@@ -1314,17 +1381,63 @@ async function executeAgentTool(toolName, toolInput, ctx) {
       };
     }
 
-    case 'mark_collection_complete': {
-      if (ctx.familyId) {
-        await db.query(
-          `UPDATE family_profiles SET status='ready', ai_confidence=0.90 WHERE id=$1`,
-          [ctx.familyId]
-        );
-        log.ok(`[agent] 收集完成  familyId=${ctx.familyId}  summary="${toolInput.summary}"`);
-      }
-      ctx.isComplete = true;
-      return { ok: true, family_id: ctx.familyId, summary: toolInput.summary };
-    }
+   // 改后
+case 'mark_collection_complete': {
+  if (!ctx.familyId) {
+    return { ok: false, error: '尚未保存任何人物，无法标记完成' };
+  }
+
+  // ── 服务端量化校验 ──────────────────────────────────────
+  const genR = await db.query(
+    `SELECT COUNT(DISTINCT generation) AS gen_count FROM persons WHERE family_id = $1`,
+    [ctx.familyId]
+  );
+  const migR = await db.query(
+    `SELECT COUNT(*) AS mig_count FROM migrations WHERE family_id = $1`,
+    [ctx.familyId]
+  );
+
+  const genCount = parseInt(genR.rows[0].gen_count);
+  const migCount = parseInt(migR.rows[0].mig_count);
+
+  log.ai(`[agent] mark_complete 校验  代际=${genCount}  迁徙数=${migCount}`);
+
+  if (genCount < 2) {
+    return {
+      ok: false,
+      reason: 'insufficient_generations',
+      current_generations: genCount,
+      required_generations: 2,
+      hint: `当前只收集了 ${genCount} 代人物，需要至少 2 代（本人+父辈，或加上祖辈更好）。请继续询问用户的父母或祖父母信息。`,
+    };
+  }
+
+  if (migCount < 2) {
+    return {
+      ok: false,
+      reason: 'insufficient_migrations',
+      current_migrations: migCount,
+      required_migrations: 2,
+      hint: `当前只有 ${migCount} 条迁徙记录，需要至少 2 条。请继续询问家人的迁徙经历。`,
+    };
+  }
+
+  // ── 校验通过，标记完成 ────────────────────────────────────
+  await db.query(
+    `UPDATE family_profiles SET status='ready', ai_confidence=0.90 WHERE id=$1`,
+    [ctx.familyId]
+  );
+  ctx.isComplete = true;
+  log.ok(`[agent] 收集完成  familyId=${ctx.familyId}  代际=${genCount}  迁徙=${migCount}  summary="${toolInput.summary}"`);
+
+  return {
+    ok: true,
+    family_id: ctx.familyId,
+    generations: genCount,
+    migrations: migCount,
+    summary: toolInput.summary,
+  };
+}
 
     default:
       return { ok: false, error: `未知工具: ${toolName}` };

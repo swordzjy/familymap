@@ -6,3 +6,4 @@
 - [mobile-chat 缓存优化](mobile_chat_cache.md) — 已有数据时跳过 AI 分析，直接加载数据库
 - [AI 分析结果缓存原则](ai_cache_principle.md) — 通用设计原则：首次分析 + 后续缓存模式
 - [extract API 重复数据修复](extract_duplicate_fix.md) — 修复 /extract 端点创建重复记录的问题
+- [生产环境 VARCHAR 错误修复](production_varchar_fix.md) — AI 返回的 reason_type 可能不是预定义枚举值导致数据库报错
