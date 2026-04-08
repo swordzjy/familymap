@@ -272,34 +272,98 @@ function generateMapSVG(paths) {
   if (!paths || paths.length === 0) {
     return `<rect width="390" height="300" fill="var(--ink0)"/><text x="195" y="150" font-family="'Noto Serif SC'" font-size="14" fill="var(--mist2)" text-anchor="middle">暂无迁徙数据</text>`;
   }
-  const baseX = 50, baseY = 50, scale = 2;
-  let pathsSVG = '', dotsSVG = '', labelsSVG = '';
+
+  // 收集所有有效坐标点
   const uniquePlaces = new Map();
   paths.forEach((p, idx) => {
-    if (p.from_lng && p.from_lat) uniquePlaces.set(`${p.from_lng},${p.from_lat}`, { name: p.from_place, lng: p.from_lng, lat: p.from_lat, color: getColorForPath(idx) });
-    if (p.to_lng && p.to_lat) uniquePlaces.set(`${p.to_lng},${p.to_lat}`, { name: p.to_place, lng: p.to_lng, lat: p.to_lat, color: getColorForPath(idx) });
+    const fromLng = parseFloat(p.from_lng);
+    const fromLat = parseFloat(p.from_lat);
+    const toLng = parseFloat(p.to_lng);
+    const toLat = parseFloat(p.to_lat);
+
+    if (!isNaN(fromLng) && !isNaN(fromLat)) {
+      const key = `${fromLng},${fromLat}`;
+      if (!uniquePlaces.has(key)) {
+        uniquePlaces.set(key, {
+          name: p.from_place,
+          lng: fromLng,
+          lat: fromLat,
+          color: getColorForPath(idx)
+        });
+      }
+    }
+    if (!isNaN(toLng) && !isNaN(toLat)) {
+      const key = `${toLng},${toLat}`;
+      if (!uniquePlaces.has(key)) {
+        uniquePlaces.set(key, {
+          name: p.to_place,
+          lng: toLng,
+          lat: toLat,
+          color: getColorForPath(idx)
+        });
+      }
+    }
   });
-  const places = Array.from(uniquePlaces.values());
+
+  if (uniquePlaces.size === 0) {
+    return `<rect width="390" height="300" fill="var(--ink0)"/><text x="195" y="150" font-family="'Noto Serif SC'" font-size="14" fill="var(--mist2)" text-anchor="middle">暂无有效坐标</text>`;
+  }
+
+  // 计算坐标范围，用于缩放
+  const lngs = Array.from(uniquePlaces.values()).map(p => p.lng);
+  const lats = Array.from(uniquePlaces.values()).map(p => p.lat);
+  const minLng = Math.min(...lngs) - 0.5;
+  const maxLng = Math.max(...lngs) + 0.5;
+  const minLat = Math.min(...lats) - 0.5;
+  const maxLat = Math.max(...lats) + 0.5;
+
+  // SVG 画布边距
+  const padX = 40, padY = 40;
+  const availW = 390 - padX * 2;
+  const availH = 300 - padY * 2;
+
+  // 计算缩放比例
+  const scaleX = availW / (maxLng - minLng);
+  const scaleY = availH / (maxLat - minLat);
+  const scale = Math.min(scaleX, scaleY);
+
+  // 生成 SVG 内容
+  let pathsSVG = '', dotsSVG = '', labelsSVG = '';
   const placesMap = new Map();
-  places.forEach((place, i) => {
-    const x = baseX + (place.lng - 100) * scale;
-    const y = baseY + (50 - place.lat) * scale;
-    placesMap.set(`${place.lng},${place.lat}`, { x, y, ...place });
+
+  uniquePlaces.forEach((place) => {
+    // 墨卡托投影简化版：经度→x, 纬度→y (y 轴翻转)
+    const x = padX + (place.lng - minLng) * scale;
+    const y = padY + availH - (place.lat - minLat) * scale;
+    const key = `${place.lng},${place.lat}`;
+    placesMap.set(key, { ...place, x, y });
   });
+
+  // 绘制路径
   paths.forEach((p, idx) => {
-    if (!p.from_lng || !p.to_lng) return;
-    const from = placesMap.get(`${p.from_lng},${p.from_lat}`);
-    const to = placesMap.get(`${p.to_lng},${p.to_lat}`);
+    const fromLng = parseFloat(p.from_lng);
+    const fromLat = parseFloat(p.from_lat);
+    const toLng = parseFloat(p.to_lng);
+    const toLat = parseFloat(p.to_lat);
+
+    if (isNaN(fromLng) || isNaN(fromLat) || isNaN(toLng) || isNaN(toLat)) return;
+
+    const from = placesMap.get(`${fromLng},${fromLat}`);
+    const to = placesMap.get(`${toLng},${toLat}`);
     if (!from || !to) return;
+
     const color = getColorForPath(idx);
     const delay = idx * 0.5;
     pathsSVG += `<path id="p${idx}" class="mpath" d="M ${from.x},${from.y} C ${(from.x+to.x)/2},${from.y} ${(from.x+to.x)/2},${to.y} ${to.x},${to.y}" stroke="${color}" stroke-width="1.5" style="--dt:1.4s;--dd:${delay}s;"/>`;
   });
-  places.forEach((place, i) => {
+
+  // 绘制城市点和标签
+  placesMap.forEach((place, key, i) => {
     const delay = i * 0.2;
     dotsSVG += `<circle class="mcity" cx="${place.x}" cy="${place.y}" r="5" fill="${place.color}" style="--cd:${delay}s;"/>`;
     labelsSVG += `<g class="mlabel" style="--ld:${delay + 0.2}s;"><text x="${place.x + 8}" y="${place.y - 8}" font-family="'Noto Serif SC'" font-size="10" fill="${place.color}">${place.name}</text></g>`;
   });
+
   return `<rect width="390" height="300" fill="var(--ink0)"/><rect width="390" height="300" fill="url(#g)"/>${pathsSVG}${dotsSVG}${labelsSVG}`;
 }
 
