@@ -929,6 +929,38 @@ beat_type 枚举: anchor | person | danger | meeting | choice | arrival | silenc
 });
 
 // ============================================================
+// 路由：GET /amapapi/story-chapters/:familyId
+// ============================================================
+app.get('/amapapi/story-chapters/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  log.info(`[story-chapters] 查询 familyId=${familyId}`);
+
+  try {
+    const chapters = await db.query(
+      `SELECT * FROM story_chapters WHERE family_id=$1 ORDER BY sequence_order`,
+      [familyId]
+    );
+
+    const formattedChapters = chapters.rows.map(row => ({
+      id: row.id,
+      sequence_order: row.sequence_order,
+      beat_type: row.beat_type,
+      narration: row.narration,
+      pause_seconds: row.pause_seconds,
+      map_action: row.map_action,
+      historical_context: row.historical_event_id ? '有历史背景' : null
+    }));
+
+    log.db(`[story-chapters] chapters=${formattedChapters.length}`);
+    res.json({ success: true, chapters: formattedChapters });
+
+  } catch (err) {
+    log.error('[story-chapters] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // 路由：GET /amapapi/geocode
 // ============================================================
 app.get('/amapapi/geocode', async (req, res) => {

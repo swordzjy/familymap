@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>寻·根 | 家族迁徙故事</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#0b0a08;--ink0:#161410;--ink1:#1f1c16;--ink2:#2a261e;--ink3:#353028;
+  --gold:#c8a96e;--gold2:#e8d098;--cream:#eee8d8;
+  --mist:rgba(238,232,216,.9);--mist2:rgba(238,232,216,.6);--mist3:rgba(238,232,216,.3);--mist4:rgba(238,232,216,.08);
+  --teal:#3ec9a0;--coral:#e07258;--blue:#6ea8d8;--purple:#a890e0;
+  --serif:'Noto Serif SC',serif;--sans:'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);overflow:hidden;-webkit-font-smoothing:antialiased;font-family:var(--sans);}
+#stars-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;opacity:0;pointer-events:none;transition:opacity .5s ease,transform .5s ease;transform:translateY(12px);}
+.screen.active{opacity:1;pointer-events:all;transform:none;}
+.screen.out{opacity:0;transform:translateY(-12px);}
+
+/* Loading */
+#s-loading{justify-content:center;gap:16px;z-index:10;}
+.loading-orb{width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 38% 32%,var(--ink2),var(--ink0));border:1px solid rgba(200,169,110,.2);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:12px;color:var(--gold);letter-spacing:.06em;animation:orbPulse 2s ease-in-out infinite;}
+@keyframes orbPulse{0%,100%{transform:scale(1);opacity:.8;}50%{transform:scale(1.05);opacity:1;}}
+.loading-text{font-family:var(--serif);font-size:14px;color:var(--mist2);letter-spacing:.2em;text-align:center;animation:textFade 1.5s ease-in-out infinite;}
+@keyframes textFade{0%,100%{opacity:.4;}50%{opacity:1;}}
+
+/* Error */
+#s-error{justify-content:center;gap:24px;z-index:10;text-align:center;padding:40px;}
+.error-icon{font-size:48px;color:var(--coral);animation:errorShake .5s ease-in-out;}
+@keyframes errorShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+.error-title{font-family:var(--serif);font-size:20px;color:var(--cream);margin-bottom:8px;}
+.error-message{font-size:14px;color:var(--mist2);line-height:1.8;max-width:320px;}
+.error-retry{margin-top:24px;height:48px;padding:0 32px;border-radius:24px;border:none;background:var(--gold);color:var(--night);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;}
+.error-retry:active{opacity:.82;}
+
+/* Map */
+#s-map{justify-content:flex-start;z-index:1;}
+.map-hero{width:100%;height:clamp(220px,55vw,320px);background:var(--ink0);flex-shrink:0;position:relative;overflow:hidden;}
+.map-hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(transparent,var(--night));pointer-events:none;}
+#map-svg{width:100%;height:100%;}
+.mpath{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:800;stroke-dashoffset:800;}
+.mpath.draw{animation:drawLine var(--dt,1.4s) ease forwards var(--dd,0s);}
+@keyframes drawLine{to{stroke-dashoffset:0;}}
+.mcity{opacity:0;}.mcity.appear{animation:dotPop .4s cubic-bezier(.34,1.56,.64,1) forwards var(--cd,.3s);}
+@keyframes dotPop{from{opacity:0;transform:scale(0);transform-box:fill-box;transform-origin:center;}to{opacity:1;transform:scale(1);}}
+.mlabel{opacity:0;}.mlabel.appear{animation:labelIn .5s ease forwards var(--ld,.5s);}
+@keyframes labelIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.pulse-r{animation:pulseRing 2.2s ease-out infinite;}
+@keyframes pulseRing{0%{r:8;opacity:.5;}100%{r:26;opacity:0;}}
+.map-info{position:absolute;top:0;left:0;right:0;padding:clamp(14px,4vw,20px) clamp(16px,5vw,24px);display:flex;align-items:flex-start;justify-content:space-between;}
+.map-name{font-family:var(--serif);font-size:clamp(18px,5vw,24px);font-weight:400;color:var(--cream);}
+.map-span{font-size:11px;color:var(--gold);letter-spacing:.06em;margin-top:4px;}
+.map-share{width:34px;height:34px;border-radius:50%;background:rgba(238,232,216,.08);backdrop-filter:blur(10px);border:1px solid var(--mist3);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.map-share:active{background:var(--mist3);}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 clamp(16px,5vw,24px);margin-top:12px;}
+.ml-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--mist2);}
+.ml-line{width:18px;height:1.5px;border-radius:1px;}
+.chapters-wrap{padding:20px clamp(20px,5vw,28px) 120px;display:flex;flex-direction:column;gap:20px;}
+#s4-scroll{width:100%;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#s4-scroll::-webkit-scrollbar{display:none;}
+.ch-card{opacity:0;transform:translateY(20px);animation:cardIn .5s ease forwards;}
+@keyframes cardIn{to{opacity:1;transform:none;}}
+.ch-beat{font-size:10px;font-weight:500;letter-spacing:.14em;color:var(--gold);display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.ch-beat-line{flex:1;height:1px;background:rgba(200,169,110,.18);}
+.ch-text{font-family:var(--serif);font-size:clamp(15px,4.2vw,19px);font-weight:300;line-height:1.9;color:var(--cream);letter-spacing:.03em;white-space:pre-line;}
+.ch-hist{margin-top:10px;padding:9px 13px;border-left:2px solid rgba(200,169,110,.25);font-size:11px;color:var(--mist2);line-height:1.6;}
+.ch-tag{display:inline-flex;align-items:center;gap:6px;margin-top:13px;padding:5px 12px;border-radius:20px;background:rgba(200,169,110,.07);border:1px solid rgba(200,169,110,.13);font-size:11px;color:var(--gold);}
+.ch-tag-dot{width:4px;height:4px;border-radius:50%;background:var(--gold);}
+
+/* Moment */
+#s-moment{justify-content:center;z-index:10;background:var(--night);}
+.moment-wrap{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 clamp(28px,7vw,56px);text-align:center;}
+.moment-number{font-family:var(--sans);font-size:clamp(64px,18vw,110px);font-weight:300;color:var(--cream);letter-spacing:-.02em;line-height:1;margin-bottom:6px;opacity:0;}
+.moment-number.visible{animation:numberReveal 1.8s ease both;}
+@keyframes numberReveal{0%{opacity:0;transform:scale(.85);}60%{opacity:1;}100%{transform:scale(1);}}
+.moment-unit{font-size:13px;color:var(--gold);letter-spacing:.2em;margin-bottom:clamp(32px,8vw,52px);opacity:0;transition:opacity .8s ease .4s;}
+.moment-unit.visible{opacity:1;}
+.timeline-line{width:1px;height:clamp(80px,20vw,130px);background:linear-gradient(var(--gold),transparent);margin:0 auto;margin-bottom:clamp(32px,8vw,52px);opacity:0;transition:opacity .6s ease .2s,height .8s ease .2s;}
+.timeline-line.visible{opacity:1;}
+.moment-quote{font-family:var(--serif);font-size:clamp(18px,5vw,26px);font-weight:300;color:var(--cream);line-height:1.9;letter-spacing:.03em;opacity:0;transition:opacity 1.2s ease;}
+.moment-quote.visible{opacity:1;}
+.moment-quote em{color:var(--gold);font-style:normal;}
+.moment-sub{font-size:clamp(13px,3.5vw,15px);color:var(--mist2);font-family:var(--serif);font-weight:300;line-height:1.8;margin-top:clamp(20px,5vw,28px);opacity:0;transition:opacity 1.2s ease;}
+.moment-sub.visible{opacity:1;}
+.moment-actions{margin-top:clamp(40px,10vw,60px);display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;transition:opacity .8s ease;}
+.moment-actions.visible{opacity:1;}
+.moment-share{height:50px;padding:0 36px;border-radius:25px;border:none;background:var(--gold);color:var(--night);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;letter-spacing:.04em;}
+.moment-share:active{opacity:.82;}
+.moment-later{font-size:12px;color:var(--mist2);cursor:pointer;letter-spacing:.06em;padding:6px 12px;}
+.moment-later:active{opacity:.6;}
+#particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.particle{position:absolute;border-radius:50%;background:var(--gold);animation:particleDrift var(--pd,8s) ease-in-out infinite var(--pdl,0s);}
+@keyframes particleDrift{0%,100%{transform:translate(0,0);opacity:0;}20%{opacity:var(--po,.3);}80%{opacity:var(--po,.3);}50%{transform:translate(var(--px,20px),var(--py,-40px));}}
+
+/* Share Sheet */
+.share-sheet{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--ink1);border-radius:20px 20px 0 0;padding:24px 20px max(env(safe-area-inset-bottom),24px);transform:translateY(100%);transition:transform .3s ease;}
+.share-sheet.active{transform:none;}
+.share-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;opacity:0;pointer-events:none;transition:opacity .3s;}
+.share-sheet-overlay.active{opacity:1;pointer-events:all;}
+.share-title{font-size:14px;color:var(--mist2);margin-bottom:16px;text-align:center;}
+.share-options{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;}
+.share-option{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;border-radius:12px;background:var(--ink0);border:1px solid var(--mist4);cursor:pointer;transition:background .15s;}
+.share-option:active{background:var(--ink2);}
+.share-option-icon{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.share-option-label{font-size:11px;color:var(--mist2);}
+.share-cancel{width:100%;height:48px;border-radius:24px;background:var(--ink2);border:1px solid var(--mist3);font-family:var(--sans);font-size:14px;color:var(--mist);cursor:pointer;transition:opacity .15s;}
+.share-cancel:active{opacity:.7;}
+
+/* Bottom & Top Bar */
+.btm{position:fixed;bottom:0;left:0;right:0;z-index:50;padding:14px 20px max(env(safe-area-inset-bottom),18px);background:linear-gradient(transparent,rgba(11,10,8,.95) 40%);display:flex;gap:10px;align-items:center;}
+.btm.hidden{display:none;}
+#topbar{position:fixed;top:0;left:0;right:0;z-index:50;padding:max(env(safe-area-inset-top),14px) 20px 0;display:flex;align-items:center;justify-content:space-between;pointer-events:none;}
+#topbar .logo-mark{pointer-events:all;cursor:pointer;}
+.topbar-right{display:flex;align-items:center;gap:8px;pointer-events:all;}
+
+/* Toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(8px);background:rgba(30,28,22,.92);backdrop-filter:blur(16px);border:1px solid var(--mist3);border-radius:20px;padding:9px 20px;font-size:12px;color:var(--cream);white-space:nowrap;opacity:0;transition:all .3s;pointer-events:none;z-index:999;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<canvas id="stars-canvas"></canvas>
+<div id="topbar">
+  <div class="logo-mark" onclick="goTo('s-loading')">寻·根</div>
+  <div class="topbar-right">
+    <div class="pill pill-ghost" style="height:36px;padding:0 16px;font-size:12px;" onclick="location.href='xungen_demo.html'">新建故事</div>
+  </div>
+</div>
+
+<div class="screen active" id="s-loading">
+  <div class="loading-orb">载入中</div>
+  <div class="loading-text">正在读取家族记忆</div>
+</div>
+
+<div class="screen" id="s-error">
+  <div class="error-icon">!</div>
+  <div class="error-title">载入失败</div>
+  <div class="error-message" id="error-msg"></div>
+  <button class="error-retry" onclick="init()">重试</button>
+</div>
+
+<div class="screen" id="s-map">
+  <div id="s4-scroll">
+    <div class="map-hero">
+      <svg id="map-svg" viewBox="0 0 390 300" preserveAspectRatio="xMidYMid slice">
+        <defs><pattern id="g" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="rgba(238,232,216,.03)" stroke-width=".5"/></pattern></defs>
+        <rect width="390" height="300" fill="var(--ink0)"/><rect width="390" height="300" fill="url(#g)"/>
+      </svg>
+      <div class="map-info">
+        <div><div class="map-name" id="map-name">家族迁徙地图</div><div class="map-span" id="map-span">载入中</div></div>
+        <div class="map-share" onclick="openShare()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mist)" stroke-width="1.8" stroke-linecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="map-legend" id="map-legend"></div>
+    <div class="chapters-wrap" id="chapters-wrap"></div>
+  </div>
+  <div class="btm">
+    <button class="pill pill-ghost pill-icon" onclick="goTo('s-loading')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mist)" stroke-width="1.8" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="pill pill-gold" style="flex:1;" id="moment-btn" onclick="goToMoment()">感受你存在的意义 →</button>
+  </div>
+</div>
+
+<div class="screen" id="s-moment">
+  <div id="particles"></div>
+  <div class="moment-wrap">
+    <div class="moment-number" id="mn">-</div>
+    <div class="moment-unit" id="mu">年</div>
+    <div class="timeline-line" id="tl"></div>
+    <div class="moment-quote" id="mq"></div>
+    <div class="moment-sub" id="ms"></div>
+    <div class="moment-actions" id="ma">
+      <button class="moment-share" onclick="openShare()">分享这个故事</button>
+      <div class="moment-later" onclick="goTo('s-map')">← 回到地图</div>
+    </div>
+  </div>
+</div>
+
+<div class="share-sheet-overlay" id="share-overlay" onclick="closeShare()"></div>
+<div class="share-sheet" id="share-sheet">
+  <div class="share-title">分享到</div>
+  <div class="share-options">
+    <div class="share-option" onclick="shareToWeChat()"><div class="share-option-icon" style="background:#07C160;color:#fff;">微信</div><div class="share-option-label">微信</div></div>
+    <div class="share-option" onclick="shareToCopyLink()"><div class="share-option-icon" style="background:var(--gold);color:var(--night);">🔗</div><div class="share-option-label">复制链接</div></div>
+    <div class="share-option" onclick="shareToImage()"><div class="share-option-icon" style="background:var(--coral);color:#fff;">📷</div><div class="share-option-label">生成海报</div></div>
+    <div class="share-option" onclick="shareToMore()"><div class="share-option-icon" style="background:var(--ink2);color:var(--mist);">⋯</div><div class="share-option-label">更多</div></div>
+  </div>
+  <button class="share-cancel" onclick="closeShare()">取消</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════
+   Configuration
+════════════════════════════════ */
+const API_BASE = '';
+let FAMILY_ID = null;
+let STORY_DATA = null;
+
+function getURLParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+/* ════════════════════════════════
+   Initialization
+════════════════════════════════ */
+async function init() {
+  FAMILY_ID = getURLParam('familyId');
+  if (!FAMILY_ID) {
+    showError('缺少家族 ID 参数。请从正确的链接访问，或创建一个新故事。');
+    return;
+  }
+  try {
+    const mapRes = await fetch(`${API_BASE}/amapapi/migration-map/${FAMILY_ID}`);
+    if (!mapRes.ok) throw new Error('数据加载失败');
+    const mapData = await mapRes.json();
+    const storyRes = await fetch(`${API_BASE}/amapapi/story-chapters/${FAMILY_ID}`);
+    let storyChapters = [];
+    if (storyRes.ok) {
+      const storyData = await storyRes.json();
+      storyChapters = storyData.chapters || [];
+    }
+    STORY_DATA = {
+      familyName: mapData.familyName || '家族',
+      paths: mapData.paths || [],
+      chapters: storyChapters
+    };
+    renderMap();
+    renderChapters();
+    renderMoment();
+    setTimeout(() => goTo('s-map'), 1500);
+  } catch (err) {
+    console.error('初始化失败:', err);
+    showError('数据加载失败，请检查网络连接或重试');
+  }
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-error').classList.add('active');
+}
+
+/* ════════════════════════════════
+   Map Rendering
+════════════════════════════════ */
+function renderMap() {
+  const { familyName, paths } = STORY_DATA;
+  document.getElementById('map-name').textContent = `${familyName}迁徙地图`;
+  const years = paths.map(p => p.year).filter(y => y);
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  document.getElementById('map-span').textContent = `${minYear} — ${maxYear || '今日'} · ${paths.length} 段迁徙`;
+  const svg = document.getElementById('map-svg');
+  const svgContent = generateMapSVG(paths);
+  svg.innerHTML = svgContent;
+  renderLegend(paths);
+  setTimeout(() => {
+    document.querySelectorAll('.mpath').forEach(p => p.classList.add('draw'));
+    document.querySelectorAll('.mcity').forEach(p => p.classList.add('appear'));
+    document.querySelectorAll('.mlabel').forEach(p => p.classList.add('appear'));
+  }, 200);
+}
+
+function generateMapSVG(paths) {
+  if (!paths || paths.length === 0) {
+    return `<rect width="390" height="300" fill="var(--ink0)"/><text x="195" y="150" font-family="'Noto Serif SC'" font-size="14" fill="var(--mist2)" text-anchor="middle">暂无迁徙数据</text>`;
+  }
+  const baseX = 50, baseY = 50, scale = 2;
+  let pathsSVG = '', dotsSVG = '', labelsSVG = '';
+  const uniquePlaces = new Map();
+  paths.forEach((p, idx) => {
+    if (p.from_lng && p.from_lat) uniquePlaces.set(`${p.from_lng},${p.from_lat}`, { name: p.from_place, lng: p.from_lng, lat: p.from_lat, color: getColorForPath(idx) });
+    if (p.to_lng && p.to_lat) uniquePlaces.set(`${p.to_lng},${p.to_lat}`, { name: p.to_place, lng: p.to_lng, lat: p.to_lat, color: getColorForPath(idx) });
+  });
+  const places = Array.from(uniquePlaces.values());
+  const placesMap = new Map();
+  places.forEach((place, i) => {
+    const x = baseX + (place.lng - 100) * scale;
+    const y = baseY + (50 - place.lat) * scale;
+    placesMap.set(`${place.lng},${place.lat}`, { x, y, ...place });
+  });
+  paths.forEach((p, idx) => {
+    if (!p.from_lng || !p.to_lng) return;
+    const from = placesMap.get(`${p.from_lng},${p.from_lat}`);
+    const to = placesMap.get(`${p.to_lng},${p.to_lat}`);
+    if (!from || !to) return;
+    const color = getColorForPath(idx);
+    const delay = idx * 0.5;
+    pathsSVG += `<path id="p${idx}" class="mpath" d="M ${from.x},${from.y} C ${(from.x+to.x)/2},${from.y} ${(from.x+to.x)/2},${to.y} ${to.x},${to.y}" stroke="${color}" stroke-width="1.5" style="--dt:1.4s;--dd:${delay}s;"/>`;
+  });
+  places.forEach((place, i) => {
+    const delay = i * 0.2;
+    dotsSVG += `<circle class="mcity" cx="${place.x}" cy="${place.y}" r="5" fill="${place.color}" style="--cd:${delay}s;"/>`;
+    labelsSVG += `<g class="mlabel" style="--ld:${delay + 0.2}s;"><text x="${place.x + 8}" y="${place.y - 8}" font-family="'Noto Serif SC'" font-size="10" fill="${place.color}">${place.name}</text></g>`;
+  });
+  return `<rect width="390" height="300" fill="var(--ink0)"/><rect width="390" height="300" fill="url(#g)"/>${pathsSVG}${dotsSVG}${labelsSVG}`;
+}
+
+function getColorForPath(index) {
+  const colors = ['var(--gold)', 'var(--coral)', 'var(--teal)', 'var(--blue)', 'var(--purple)'];
+  return colors[index % colors.length];
+}
+
+function renderLegend(paths) {
+  const legendData = [
+    { color: 'var(--gold)', label: '求学' },
+    { color: 'var(--coral)', label: '政策' },
+    { color: 'var(--teal)', label: '自主' },
+    { color: 'var(--blue)', label: '家庭' },
+    { color: 'var(--purple)', label: '其他' }
+  ];
+  const legendEl = document.getElementById('map-legend');
+  legendEl.innerHTML = legendData.map(item => `<div class="ml-item"><div class="ml-line" style="background:${item.color};"></div>${item.label}</div>`).join('');
+}
+
+/* ════════════════════════════════
+   Chapters Rendering
+════════════════════════════════ */
+function renderChapters() {
+  const { chapters } = STORY_DATA;
+  const wrap = document.getElementById('chapters-wrap');
+  if (!chapters || chapters.length === 0) {
+    wrap.innerHTML = '<div class="ch-card"><div class="ch-text">暂无叙事章节</div></div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  chapters.forEach((ch, i) => {
+    const div = document.createElement('div');
+    div.className = 'ch-card';
+    div.style.animationDelay = (0.6 + i * 0.35) + 's';
+    let html = `<div class="ch-beat"><span>${ch.beat_type || '章节'}</span><div class="ch-beat-line"></div></div>`;
+    html += `<div class="ch-text">${(ch.narration || '').replace(/\n/g, '<br>')}</div>`;
+    if (ch.historical_context) {
+      html += `<div class="ch-hist">${ch.historical_context}</div>`;
+    }
+    if (ch.map_action && ch.map_action.place) {
+      html += `<div class="ch-tag"><div class="ch-tag-dot"></div>${ch.map_action.place}<span style="opacity:.45;margin-left:6px;">${ch.map_action.year || ''}</span></div>`;
+    }
+    div.innerHTML = html;
+    wrap.appendChild(div);
+  });
+}
+
+/* ════════════════════════════════
+   Moment Rendering
+════════════════════════════════ */
+function renderMoment() {
+  const { paths } = STORY_DATA;
+  const years = paths.map(p => p.year).filter(y => y);
+  if (years.length > 0) {
+    const span = Math.max(...years) - Math.min(...years) + 1;
+    document.getElementById('mn').textContent = span;
+  }
+  const quote = generateMomentQuote();
+  document.getElementById('mq').innerHTML = quote.main;
+  document.getElementById('ms').innerHTML = quote.sub;
+}
+
+function generateMomentQuote() {
+  const { familyName, paths } = STORY_DATA;
+  const years = paths.map(p => p.year).filter(y => y);
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  const firstPlace = paths[0]?.from_place || '远方';
+  const lastPlace = paths[paths.length - 1]?.to_place || '此处';
+  
+  const main = `从${minYear}年的${firstPlace}，<br>到今天你站立的地方，<br><br><em>每一代人都必须活下来，<br>每一次相遇都不能错过。</em>`;
+  const sub = `任何一个节点的失败——<br>你就不会存在。<br><br>你不是偶然。<br>你是${paths.length}段迁徙、${maxYear - minYear}年岁月共同指向的结果。`;
+  return { main, sub };
+}
+
+function goToMoment() {
+  goTo('s-moment');
+  setTimeout(animateMoment, 600);
+}
+
+function animateMoment() {
+  const mn = document.getElementById('mn');
+  mn.classList.add('visible');
+  const target = parseInt(mn.textContent) || 120;
+  let n = 0;
+  const dur = 1600, start = Date.now();
+  function tick() {
+    const p = Math.min((Date.now() - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    mn.textContent = Math.round(ease * target);
+    if (p < 1) requestAnimationFrame(tick);
+    else mn.textContent = target;
+  }
+  tick();
+  setTimeout(() => document.getElementById('mu').classList.add('visible'), 400);
+  setTimeout(() => document.getElementById('tl').classList.add('visible'), 700);
+  setTimeout(() => document.getElementById('mq').classList.add('visible'), 1200);
+  setTimeout(() => document.getElementById('ms').classList.add('visible'), 2800);
+  setTimeout(() => document.getElementById('ma').classList.add('visible'), 4800);
+}
+
+/* ════════════════════════════════
+   Screen Router
+════════════════════════════════ */
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active', 'out');
+    s.classList.add('out');
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('out'));
+    document.getElementById(id).classList.add('active');
+  }, 480);
+}
+
+/* ════════════════════════════════
+   Particles
+════════════════════════════════ */
+(function() {
+  const p = document.getElementById('particles');
+  for (let i = 0; i < 18; i++) {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    const sz = 1 + Math.random() * 2;
+    el.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--pd:${6+Math.random()*8}s;--pdl:-${Math.random()*8}s;--po:${.1+Math.random()*.3};--px:${(Math.random()-.5)*60}px;--py:${-20-Math.random()*60}px;`;
+    p.appendChild(el);
+  }
+})();
+
+/* ════════════════════════════════
+   Stars
+════════════════════════════════ */
+(function() {
+  const c = document.getElementById('stars-canvas');
+  const ctx = c.getContext('2d');
+  function resize() { c.width = innerWidth; c.height = innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  const stars = Array.from({ length: 80 }, () => ({
+    x: Math.random(), y: Math.random(),
+    r: .4 + Math.random() * 1.2,
+    a: Math.random(), da: .002 + Math.random() * .004, phase: Math.random() * Math.PI * 2
+  }));
+  function draw(t) {
+    ctx.clearRect(0, 0, c.width, c.height);
+    stars.forEach(s => {
+      const op = .04 + (Math.sin(t * .001 * s.da * 800 + s.phase) + 1) / 2 * .22;
+      ctx.beginPath(); ctx.arc(s.x * c.width, s.y * c.height, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(238,232,216,${op})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ════════════════════════════════
+   Share Sheet
+════════════════════════════════ */
+function openShare() {
+  document.getElementById('share-overlay').classList.add('active');
+  document.getElementById('share-sheet').classList.add('active');
+}
+
+function closeShare() {
+  document.getElementById('share-overlay').classList.remove('active');
+  document.getElementById('share-sheet').classList.remove('active');
+}
+
+function shareToWeChat() {
+  showToast('请在微信中打开分享');
+  closeShare();
+}
+
+function shareToCopyLink() {
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('链接已复制到剪贴板');
+  }).catch(() => {
+    showToast('复制失败，请手动复制');
+  });
+  closeShare();
+}
+
+function shareToImage() {
+  showToast('正在生成海报...');
+  closeShare();
+}
+
+function shareToMore() {
+  if (navigator.share) {
+    navigator.share({
+      title: document.title,
+      url: window.location.href
+    });
+  } else {
+    showToast('当前浏览器不支持分享');
+  }
+  closeShare();
+}
+
+/* ════════════════════════════════
+   Toast
+════════════════════════════════ */
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════════════
+   Init
+════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
