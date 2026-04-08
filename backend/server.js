@@ -175,6 +175,41 @@ function extractCityFromPlace(placeName) {
   return '';
 }
 
+// 构建地名的变体形式，提高地理编码成功率
+function buildPlaceVariants(placeName) {
+  if (!placeName) return [];
+
+  const variants = new Set();
+  variants.add(placeName); // 原始名称
+
+  // 1. 去除省级前缀
+  const provincePrefixes = ["黑龙江省", "吉林省", "辽宁省", "河北省", "河南省", "山东省", "山西省", "江苏省", "浙江省", "安徽省", "福建省", "江西省", "湖南省", "湖北省", "广东省", "广西省", "四川省", "贵州省", "云南省", "陕西省", "甘肃省", "青海省"];
+  for (const prefix of provincePrefixes) {
+    if (placeName.startsWith(prefix)) {
+      variants.add(placeName.slice(prefix.length));
+      break;
+    }
+  }
+
+  // 2. 去除市级后缀（市，县，区，旗）
+  const citySuffixes = ["市", "县", "区", "旗"];
+  for (const suffix of citySuffixes) {
+    if (placeName.endsWith(suffix)) {
+      variants.add(placeName.slice(0, -suffix.length));
+      // 省级 + 不含后缀的名字，如 "黑龙江省双城"
+      for (const prefix of provincePrefixes) {
+        if (placeName.startsWith(prefix)) {
+          variants.add(prefix + placeName.slice(prefix.length, -suffix.length));
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  return Array.from(variants).filter(v => v && v.length > 0);
+}
+
 async function geocodePlace(placeName) {
   if (!placeName) return null;
 
@@ -196,56 +231,55 @@ async function geocodePlace(placeName) {
     log.warn(`地名缓存查询失败 (${placeName}):`, dbErr.message);
   }
 
-  // 2. 高德 API（尝试提取城市信息以提高准确性）
-  const city = extractCityFromPlace(placeName);
-  if (city) {
-    log.info(`调用高德地理编码："${placeName}" city="${city}"`);
-  } else {
-    log.info(`调用高德地理编码："${placeName}"`);
-  }
-  const geo = await amapClient.geocode(placeName, city);
+  // 2. 高德 API - 尝试变体以提高成功率
+  const variants = buildPlaceVariants(placeName);
+  log.info(`尝试地理编码变体 (${variants.length}): ${variants.join(', ')}`);
 
-  if (!geo) {
-    // 先精确匹配 fallback
-    const fallback = FALLBACK_COORDS[placeName];
-    if (fallback) {
-      log.warn(`高德失败，使用 FALLBACK (精确): ${placeName} → ${fallback.longitude}, ${fallback.latitude}`);
-      return fallback;
-    }
-    // 模糊匹配 fallback（包含匹配）
-    for (const [name, coords] of Object.entries(FALLBACK_COORDS)) {
-      if (placeName.includes(name) || name.includes(placeName)) {
-        log.warn(`高德失败，使用 FALLBACK (模糊): ${placeName} ≈ ${name} → ${coords.longitude}, ${coords.latitude}`);
-        return { ...coords };
+  for (const variant of variants) {
+    const city = extractCityFromPlace(variant);
+    const geo = await amapClient.geocode(variant, city).catch(() => null);
+    if (geo) {
+      log.ok(`地理编码成功 (变体 "${variant}"): ${placeName} → ${geo.lng}, ${geo.lat} (${geo.formatted})`);
+      // 写入缓存（以原始名称为 key）
+      try {
+        await db.query(
+          `INSERT INTO places
+             (raw_name, normalized_name, province, city, longitude, latitude, geocode_source)
+           VALUES ($1, $2, $3, $4, $5, $6, 'amap')
+           ON CONFLICT (raw_name) DO UPDATE SET
+             longitude = EXCLUDED.longitude,
+             latitude = EXCLUDED.latitude,
+             normalized_name = EXCLUDED.normalized_name,
+             province = EXCLUDED.province,
+             city = EXCLUDED.city,
+             geocode_source = EXCLUDED.geocode_source`,
+          [placeName, geo.formatted, geo.province, geo.city, geo.lng, geo.lat]
+        );
+      } catch (dbErr) {
+        log.warn(`地名写入缓存失败 (${placeName}):`, dbErr.message);
       }
+      return { longitude: geo.lng, latitude: geo.lat, normalized_name: geo.formatted };
     }
-    log.error(`地理编码完全失败： "${placeName}"`);
-    return null;
   }
 
-  log.ok(`地理编码成功: ${placeName} → ${geo.lng}, ${geo.lat} (${geo.formatted})`);
+  // 3. 所有变体都失败，尝试 fallback
+  log.info(`所有变体地理编码失败，尝试 fallback 坐标`);
 
-  // 3. 写入缓存
-  try {
-    await db.query(
-      `INSERT INTO places
-         (raw_name, normalized_name, province, city, longitude, latitude, geocode_source)
-       VALUES ($1, $2, $3, $4, $5, $6, 'amap')
-       ON CONFLICT (raw_name) DO UPDATE SET
-         longitude = EXCLUDED.longitude,
-         latitude = EXCLUDED.latitude,
-         normalized_name = EXCLUDED.normalized_name,
-         province = EXCLUDED.province,
-         city = EXCLUDED.city,
-         geocode_source = EXCLUDED.geocode_source`,
-      [placeName, geo.formatted, geo.province, geo.city, geo.lng, geo.lat]
-    );
-    log.db(`地名缓存已更新：${placeName}`);
-  } catch (dbErr) {
-    log.warn(`地名写入缓存失败 (${placeName}):`, dbErr.message);
+  // 先精确匹配 fallback
+  const fallback = FALLBACK_COORDS[placeName];
+  if (fallback) {
+    log.warn(`高德失败，使用 FALLBACK (精确): ${placeName} → ${fallback.longitude}, ${fallback.latitude}`);
+    return fallback;
   }
-
-  return { longitude: geo.lng, latitude: geo.lat, normalized_name: geo.formatted };
+  // 模糊匹配 fallback（包含匹配）
+  for (const [name, coords] of Object.entries(FALLBACK_COORDS)) {
+    if (placeName.includes(name) || name.includes(placeName)) {
+      log.warn(`高德失败，使用 FALLBACK (模糊): ${placeName} ≈ ${name} → ${coords.longitude}, ${coords.latitude}`);
+      return { ...coords };
+    }
+  }
+  log.error(`地理编码完全失败： "${placeName}"`);
+  return null;
 }
 
 async function matchHistoricalEvents(year, region = 'national') {
