@@ -16,7 +16,9 @@
       "Bash(git commit:*)",
       "Bash(pkill -f \"node server.js\")",
       "Bash(curl -s http://localhost:3005/amapapi/migration-map/f32d2da9-b5ff-4f03-9db0-c1be4eada9e6)",
-      "Bash(curl -s http://localhost:3005/amapapi/migration-map/b4ce0bdb-3d86-4d0c-ac1c-7876cdf7957e)"
+      "Bash(curl -s http://localhost:3005/amapapi/migration-map/b4ce0bdb-3d86-4d0c-ac1c-7876cdf7957e)",
+      "Bash(sed -i '' '289,309s/const isComplete = fullText/const elapsed = Date.now\\(\\) - startTime;\\\\n      const isComplete = fullText/' /Users/jianyu/Documents/feisu/xungen/wangzu-map/backend/server.js)",
+      "Bash(sed -i '' 's/chunks=/耗时=${elapsed}ms  chunks=/' /Users/jianyu/Documents/feisu/xungen/wangzu-map/backend/server.js)"
     ]
   }
 }

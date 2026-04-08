@@ -249,24 +249,14 @@ app.post('/amapapi/chat', async (req, res) => {
   log.ai(`[chat] 开始  轮次=${messages?.length || 0}  familyId=${familyId || '无'}`);
   log.ai(`[chat] 模型=${QWEN_MODEL}  最后消息: "${messages?.at(-1)?.content?.slice(0, 60) || ''}"`);
 
-  const COLLECTOR_SYSTEM = `你是一个温暖、耐心的家族故事收集者。你的任务是通过自然对话，
-收集用户家族的迁徙信息。
+  const COLLECTOR_SYSTEM = `你是家族故事收集者。通过对话收集迁徙信息。
 
-对话策略：
-1. 每次只问一个问题，不要一次问多个
-2. 先问本人，再问父母，再问祖父母
-3. 核心要收集：每个人的出生地、重大迁徙地点和年份、原因
-4. 用温暖、简短的语言，不要正式
-5. 当收集到3代以上信息后，在回复末尾加上 [INFO_COMPLETE]
-
-提问顺序建议：
-- 第1问：你现在住在哪里？叫什么名字？
-- 第2问：你的父母是哪里人？现在在哪？
-- 第3问：爷爷奶奶那辈是哪里的？
-- 第4问：家里有没有重要的搬迁故事？
-- 第5问：家人有没有特殊经历（读书、当兵、下乡等）？
-
-语气：像老朋友聊天，不像填表格。`;
+规则：
+1. 每次只问 1 个问题
+2. 按顺序问：本人→父母→祖父母
+3. 收集：地点、年份、原因
+4. 语气温暖自然
+5. 收集到 3 代后，末尾加 [INFO_COMPLETE]`;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -297,24 +287,25 @@ app.post('/amapapi/chat', async (req, res) => {
     });
 
     stream.on('finalMessage', async (msg) => {
+      const elapsed = Date.now() - startTime;
       const isComplete = fullText.includes('[INFO_COMPLETE]');
-      log.ai(`[chat] 完成  chunks=${chunkCount}  tokens=${msg.usage?.output_tokens || '?'}  isComplete=${isComplete}`);
+      log.ai(`[chat] 完成  耗时=${elapsed}ms  chunks=${chunkCount}  tokens=${msg.usage?.output_tokens || '?'}  isComplete=${isComplete}`);
       log.ai(`[chat] 完整回复(前100字): "${fullText.slice(0, 100)}"`);
 
       res.write(`data: ${JSON.stringify({ type: 'done', isComplete, familyId })}\n\n`);
       res.end();
 
+      // 优化：数据库更新改为非阻塞，不影响响应速度
       if (familyId) {
-        try {
-          await db.query(
-            `UPDATE chat_sessions SET messages=$1, is_complete=$2, updated_at=NOW()
-             WHERE family_id=$3`,
-            [JSON.stringify(messages), isComplete, familyId]
-          );
+        db.query(
+          `UPDATE chat_sessions SET messages=$1, is_complete=$2, updated_at=NOW()
+           WHERE family_id=$3`,
+          [JSON.stringify(messages), isComplete, familyId]
+        ).then(() => {
           log.db(`[chat] 会话已更新 familyId=${familyId}`);
-        } catch (dbErr) {
+        }).catch((dbErr) => {
           log.warn('[chat] 会话更新失败:', dbErr.message);
-        }
+        });
       }
     });
 
