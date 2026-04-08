@@ -150,6 +150,7 @@ const FALLBACK_COORDS = {
   '黑龙江省双城县':   { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
   '双城县':          { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
   '双城':            { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
+  '黑龙江双城':      { longitude: 126.312, latitude: 45.374, normalized_name: '黑龙江省哈尔滨市双城区' },
   '哈尔滨':          { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
   '黑龙江省哈尔滨':  { longitude: 126.642, latitude: 45.757, normalized_name: '黑龙江省哈尔滨市' },
   // 北京
@@ -1287,7 +1288,6 @@ async function executeAgentTool(toolName, toolInput, ctx) {
         log.db(`[agent] 新建 family_profile  id=${ctx.familyId}`);
       }
 
-      //const iid = `p_${role}_${Date.now()}`;
       const iid = 'p' + Date.now().toString(36);  // 固定9位，永不超限
       const r = await db.query(
         `INSERT INTO persons (family_id, internal_id, role, name, birth_year, birth_place, occupation, generation)
@@ -1332,10 +1332,8 @@ async function executeAgentTool(toolName, toolInput, ctx) {
       const toRow = to_place
         ? await db.query('SELECT id FROM places WHERE raw_name=$1', [to_place])
         : { rows: [] };
-      const emotionWeight = resolveEmotionWeight(sanitizedReasonType, year, ctx);  
+      const emotionWeight = resolveEmotionWeight(sanitizedReasonType, year, ctx);
       await db.query(
-        // save_migration case 内，INSERT 之前插入这段
-        // INSERT 语句把 'medium' 改为变量
         `INSERT INTO migrations
           (family_id, person_id, from_place_id, to_place_id,
             from_place_raw, to_place_raw, year, year_approx,
@@ -1347,7 +1345,7 @@ async function executeAgentTool(toolName, toolInput, ctx) {
           from_place || null, to_place,
           year || null, year_approx || false,
           reason || null, sanitizedReasonType,
-          emotionWeight,   // ← 原来是写死的 'medium'
+          emotionWeight,
           seq,
         ]
       );
@@ -1442,6 +1440,25 @@ case 'mark_collection_complete': {
     default:
       return { ok: false, error: `未知工具: ${toolName}` };
   }
+}
+
+// ============================================================
+// ★ AGENT：阶段推断（根据已保存人物决定当前收集阶段）
+// ============================================================
+function resolvePhase(ctx) {
+  const roles    = Object.keys(ctx.personMap);
+  const hasSelf  = roles.includes('本人');
+  const hasParent = roles.some(r => ['父亲', '母亲'].includes(r));
+  const hasGrand  = roles.some(r => ['爷爷', '奶奶', '外公', '外婆'].includes(r));
+
+  // 尚未保存本人 → 本人信息轮
+  if (!hasSelf)   return 'self_info';
+  // 有本人但无迁徙数据（前端无法感知，这里保守判断）→ 本人迁徙轮
+  if (!hasParent) return 'self_migration';
+  // 有父辈但无祖辈 → 父辈信息/迁徙轮
+  if (!hasGrand)  return 'parent_info';
+  // 有祖辈 → 祖辈信息/迁徙轮
+  return 'grand_info';
 }
 
 // ============================================================
@@ -1556,12 +1573,14 @@ app.post('/amapapi/agent', async (req, res) => {
       }
 
       const elapsed = Date.now() - startTime;
-      log.ok(`[agent] 完成  耗时=${elapsed}ms  iters=${iter}  familyId=${ctx.familyId}  isComplete=${ctx.isComplete}`);
+      const phase   = resolvePhase(ctx);
+      log.ok(`[agent] 完成  耗时=${elapsed}ms  iters=${iter}  familyId=${ctx.familyId}  isComplete=${ctx.isComplete}  phase=${phase}`);
 
       res.write(`data: ${JSON.stringify({
         type:       'done',
         isComplete: ctx.isComplete,
         familyId:   ctx.familyId,
+        phase:      phase,
       })}\n\n`);
       res.end();
       return;
