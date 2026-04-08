@@ -14,7 +14,8 @@
   const isSmallScreen = window.innerWidth <= 768;
 
   if (isMobile || isSmallScreen) {
-    window.location.href = '/mobile-chat.html';
+    // 使用相对路径，支持 Nginx 二级目录部署
+    window.location.href = 'mobile-chat.html';
   }
 })();
 </script>
