@@ -383,7 +383,7 @@ function renderUserPaths(data) {
     loadingEl.innerHTML = `
       <div class="map-loading-txt">暂无可显示的迁徙数据</div>
       <div class="map-loading-error">请确保聊天中包含地点信息</div>
-      <a href="/mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
+      <a href="mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
     `;
     return;
   }
@@ -674,7 +674,7 @@ function showError(message) {
   loadingEl.innerHTML = `
     <div class="map-loading-txt">加载失败</div>
     <div class="map-loading-error">${message}</div>
-    <a href="/mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
+    <a href="mobile-chat.html" class="map-loading-retry" style="display:inline-block;text-decoration:none;">返回聊天</a>
   `;
 }
 

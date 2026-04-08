@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>家族迁徙 · 故事集</title>
+<meta name="description" content="多个家族的迁徙故事演示">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- 高德地图 JS API -->
+<script src="https://webapi.amap.com/loader.js"></script>
+
+<style>
+:root{
+  --night:#090806;--ink0:#110f0b;--ink1:#1a1710;--ink2:#232018;--ink3:#2e2a20;
+  --gold:#c8a96e;--gold2:#e8d098;--gold3:#f5e8c0;
+  --cream:#eee8d8;--mist:rgba(238,232,216,.5);--mist2:rgba(238,232,216,.25);
+  --mist3:rgba(238,232,216,.1);--mist4:rgba(238,232,216,.05);
+  --teal:#3ec9a0;--coral:#e07258;--blue:#6aabdc;--purple:#a890e0;
+  --serif:'Noto Serif SC',serif;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
+  color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+
+#app{width:100%;height:100%;display:flex;flex-direction:column;}
+
+/* ========== 顶部导航 ========== */
+.nav{
+  height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--mist4);position:relative;z-index:100;
+  background:linear-gradient(to bottom, var(--ink0), var(--night));
+}
+.nav-logo{font-family:var(--serif);font-size:17px;letter-spacing:.3em;color:var(--gold);font-weight:500;}
+.nav-sub{font-size:12px;color:var(--mist2);margin-left:12px;}
+
+/* ========== 故事选择器 ========== */
+.story-selector{
+  display:flex;gap:8px;padding:12px 20px;overflow-x:auto;flex-shrink:0;
+  border-bottom:1px solid var(--mist4);background:var(--ink0);
+}
+.story-chip{
+  flex-shrink:0;height:38px;padding:0 16px;border-radius:19px;
+  border:1px solid var(--mist4);background:var(--mist3);
+  font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;
+  color:var(--mist2);transition:all .2s;white-space:nowrap;
+  display:flex;align-items:center;gap:6px;
+}
+.story-chip:hover{background:var(--mist4);color:var(--cream);}
+.story-chip.active{
+  background:var(--gold);color:var(--night);border-color:var(--gold);
+  font-weight:600;box-shadow:0 2px 12px rgba(200,169,110,.3);
+}
+.chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;}
+
+/* ========== 主内容区 ========== */
+.main{flex:1;position:relative;overflow:hidden;}
+
+/* 地图面板 */
+#map-panel{width:100%;height:100%;position:relative;}
+#amap-container{width:100%;height:100%;}
+
+/* 地图加载状态 */
+.map-loading{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:200;
+  background:var(--night);
+}
+.map-loading-dot{
+  width:10px;height:10px;border-radius:50%;background:var(--gold);
+  animation:dotPulse 1.4s ease-in-out infinite;
+}
+@keyframes dotPulse{
+  0%,100%{transform:scale(0.6);opacity:0.4;}
+  50%{transform:scale(1);opacity:1;}
+}
+.map-loading-txt{
+  margin-top:16px;font-size:13px;color:var(--mist2);font-family:var(--mono);
+}
+
+/* ========== 迁徙事件卡片 ========== */
+.migration-event{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  z-index:30;
+  background:rgba(9,8,6,.95);backdrop-filter:blur(12px);
+  border:1px solid rgba(200,169,110,.25);
+  border-radius:8px;
+  padding:8px 12px;
+  max-width:240px;
+  text-align:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .4s ease;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  cursor:move;user-select:none;
+}
+.migration-event.visible{
+  opacity:1;pointer-events:all;
+}
+.migration-event.dragging{
+  transition:none;
+}
+.event-title{
+  font-family:var(--serif);font-size:13px;font-weight:600;
+  color:var(--cream);margin-bottom:4px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.event-desc{
+  font-size:11px;color:var(--mist2);line-height:1.3;
+  margin-bottom:6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.event-route{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:4px 6px;
+  background:linear-gradient(135deg, rgba(200,169,110,.12), rgba(200,169,110,.04));
+  border-radius:4px;
+  border:1px solid rgba(200,169,110,.2);
+}
+.event-year-inline{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  color:var(--gold);letter-spacing:.1em;
+}
+.event-route-text{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--gold2);letter-spacing:.05em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:140px;
+}
+/* ========== 叙事弹窗（可拖拽） ========== */
+.narrative-popup{
+  position:absolute;top:120px;left:50%;transform:translateX(-50%);
+  width:400px;max-width:calc(100vw - 40px);
+  max-height:calc(100vh - 160px);
+  background:rgba(9,8,6,.98);backdrop-filter:blur(16px);
+  border:1px solid rgba(200,169,110,.4);
+  border-radius:14px;padding:0;z-index:45;
+  display:none;box-shadow:0 12px 48px rgba(0,0,0,.6),0 0 0 1px rgba(200,169,110,.1);
+  cursor:move;user-select:none;
+  overflow:hidden;
+}
+.narrative-popup.visible{display:flex;flex-direction:column;animation:popupFadeIn .3s ease;}
+@keyframes popupFadeIn{
+  from{opacity:0;transform:translateX(-50%) translateY(-10px);}
+  to{opacity:1;transform:translateX(-50%) translateY(0);}
+}
+/* 弹窗头部 */
+.np-header{
+  padding:16px 20px 12px;
+  border-bottom:1px solid rgba(200,169,110,.2);
+  background:linear-gradient(180deg, rgba(200,169,110,.08), transparent);
+  flex-shrink:0;
+}
+.np-close{
+  position:absolute;top:12px;right:12px;width:32px;height:32px;
+  border:none;background:rgba(200,169,110,.15);color:var(--gold);
+  font-size:22px;cursor:pointer;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;font-weight:300;
+}
+.np-close:hover{background:var(--gold);color:var(--night);transform:rotate(90deg);}
+.np-location{
+  font-family:var(--serif);font-size:18px;font-weight:600;
+  color:var(--cream);margin-bottom:6px;letter-spacing:.05em;
+  padding-right:36px;
+}
+.np-route{
+  font-family:var(--mono);font-size:12px;color:var(--gold);
+  letter-spacing:.1em;display:flex;align-items:center;gap:6px;
+}
+.np-route::before{
+  content:'';display:inline-block;width:16px;height:1px;
+  background:var(--gold);opacity:.5;
+}
+/* 弹窗内容区（可滚动） */
+.np-body{
+  padding:20px 24px;
+  overflow-y:auto;
+  flex:1;
+  min-height:200px;
+  max-height:65vh;
+}
+/* 自定义滚动条 */
+.np-body::-webkit-scrollbar{
+  width:4px;
+}
+.np-body::-webkit-scrollbar-track{
+  background:transparent;
+}
+.np-body::-webkit-scrollbar-thumb{
+  background:rgba(200,169,110,.3);
+  border-radius:2px;
+}
+.np-body::-webkit-scrollbar-thumb:hover{
+  background:rgba(200,169,110,.5);
+}
+/* 叙事文本 */
+.np-narrative{
+  font-family:var(--serif);font-size:15px;line-height:2.2;
+  color:var(--cream);text-align:justify;
+}
+/* 段落格式 */
+.np-narrative p{
+  margin-bottom:18px;
+  text-indent:0;
+}
+.np-narrative p:last-child{
+  margin-bottom:0;
+}
+/* 首字放大 */
+.drop-cap{
+  font-size:32px;font-weight:600;color:var(--gold);
+  float:left;line-height:1;
+  margin-right:8px;margin-top:4px;
+}
+/* 引用样式 */
+.np-narrative .quote{
+  border-left:3px solid var(--gold);
+  padding-left:14px;
+  margin:16px 0;
+  color:var(--mist);
+  font-style:italic;
+}
+/* 分隔线 */
+.np-divider{
+  height:1px;
+  background:linear-gradient(90deg, transparent, rgba(200,169,110,.3), transparent);
+  margin:20px 0;
+}
+/* 标签 */
+.np-label{
+  display:inline-block;
+  font-size:10px;font-family:var(--mono);
+  color:var(--gold);
+  text-transform:uppercase;letter-spacing:.15em;
+  margin-bottom:12px;
+  opacity:.8;
+}
+
+/* ========== 底部信息栏 ========== */
+.map-bot{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:16px 20px 20px;
+  background:linear-gradient(to top, rgba(9,8,6,.96) 60%, transparent);
+  z-index:50;
+}
+.map-title{
+  font-family:var(--serif);font-size:16px;font-weight:500;
+  color:var(--cream);margin-bottom:12px;letter-spacing:.1em;
+}
+
+/* 迁徙芯片 */
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{
+  height:32px;padding:0 12px;border-radius:16px;
+  border:1px solid var(--mist4);background:rgba(17,15,11,.6);
+  backdrop-filter:blur(8px);
+  font-size:12px;color:var(--mist2);cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;gap:6px;
+}
+.chip:hover{background:var(--mist3);border-color:var(--gold);}
+.chip.on{background:var(--mist4);border-color:var(--gold);color:var(--cream);}
+.chip-d{width:8px;height:8px;border-radius:4px;}
+.chip-y{font-family:var(--mono);font-size:11px;color:var(--gold);margin-left:2px;}
+
+/* ========== 城市弹窗 ========== */
+.city-pop{
+  position:absolute;top:120px;right:20px;width:260px;
+  background:rgba(9,8,6,.96);backdrop-filter:blur(16px);
+  border:1px solid rgba(200,169,110,.3);
+  border-radius:12px;padding:16px;z-index:40;
+  display:none;box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.city-pop.visible{display:block;}
+.cp-close{
+  position:absolute;top:8px;right:10px;width:24px;height:24px;
+  border:none;background:transparent;color:var(--mist2);
+  font-size:18px;cursor:pointer;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+}
+.cp-close:hover{background:var(--mist3);color:var(--cream);}
+.cp-name{
+  font-family:var(--serif);font-size:17px;font-weight:600;
+  color:var(--cream);margin-bottom:6px;
+}
+.cp-meta{font-size:12px;color:var(--mist2);margin-bottom:10px;font-family:var(--mono);}
+.cp-story{font-size:13px;color:var(--mist);line-height:1.7;}
+
+/* ========== 返回按钮 ========== */
+.back-btn{
+  position:absolute;top:72px;left:20px;z-index:60;
+  height:36px;padding:0 16px;border-radius:18px;
+  border:1px solid var(--mist4);background:rgba(9,8,6,.8);
+  backdrop-filter:blur(8px);
+  font-family:var(--sans);font-size:13px;color:var(--mist2);
+  cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:6px;
+}
+.back-btn:hover{background:var(--mist4);color:var(--cream);border-color:var(--gold);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 顶部导航 -->
+  <div class="nav">
+    <div style="display:flex;align-items:center;">
+      <div class="nav-logo">寻根</div>
+      <div class="nav-sub">家族迁徙故事集</div>
+    </div>
+    <a href="index.html" style="font-size:13px;color:var(--mist2);text-decoration:none;">返回 →</a>
+  </div>
+
+  <!-- 故事选择器 -->
+  <div class="story-selector" id="story-selector">
+    <!-- 动态生成 -->
+  </div>
+
+  <!-- 主内容区 -->
+  <div class="main">
+    <div id="map-panel">
+      <!-- 加载状态 -->
+      <div class="map-loading" id="map-loading">
+        <div class="map-loading-dot"></div>
+        <div class="map-loading-txt">地图加载中...</div>
+      </div>
+
+      <!-- 高德地图容器 -->
+      <div id="amap-container"></div>
+
+      <!-- 迁徙事件卡片 -->
+      <div class="migration-event" id="migration-event">
+        <div class="event-title" id="event-title"></div>
+        <div class="event-desc" id="event-desc"></div>
+        <div class="event-route">
+          <span class="event-year-inline" id="event-year-inline"></span>
+          <span class="event-route-text" id="event-route-text"></span>
+        </div>
+      </div>
+
+      <!-- 叙事弹窗（可拖拽） -->
+      <div class="narrative-popup" id="narrative-popup">
+        <button class="np-close" onclick="closeNarrativePopup()">×</button>
+        <div class="np-header">
+          <div class="np-location" id="np-location"></div>
+          <div class="np-route" id="np-route"></div>
+        </div>
+        <div class="np-body">
+          <div class="np-label">亲历者说</div>
+          <div class="np-narrative" id="np-narrative"></div>
+        </div>
+      </div>
+
+      <!-- 城市弹窗 -->
+      <div class="city-pop" id="city-pop">
+        <button class="cp-close" onclick="closeCity()">×</button>
+        <div class="cp-name" id="cp-name"></div>
+        <div class="cp-meta" id="cp-meta"></div>
+        <div class="cp-story" id="cp-story"></div>
+      </div>
+
+      <!-- 返回按钮 -->
+      <button class="back-btn" onclick="location.href='index.html'">← 返回</button>
+
+      <!-- 底部信息栏 -->
+      <div class="map-bot">
+        <div class="map-title" id="map-title">家族迁徙路径</div>
+        <div class="chips" id="chips-container">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+let STORIES = [];  // 从后端加载的故事数据
+let currentStoryIndex = 0;
+let amapInstance = null;
+let mapInited = false;
+let currentPolylines = [];
+let currentMarkers = [];
+let narrativePopupVisible = false;  // 叙事弹窗状态
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDemoStories();
+  initMap();
+});
+
+// 从后端加载演示故事
+async function loadDemoStories() {
+  try {
+    const res = await fetch('/amapapi/demo-stories');
+    const data = await res.json();
+
+    if (data.success && data.stories && data.stories.length > 0) {
+      // 为每个故事获取详细的迁徙数据
+      STORIES = await Promise.all(data.stories.map(async (story, idx) => {
+        const detailRes = await fetch(`/amapapi/migration-map/${story.id}`);
+        const detailData = await detailRes.json();
+
+        return buildStoryFromData(story, detailData);
+      }));
+
+      // 过滤掉 null 值（构建失败的）
+      STORIES = STORIES.filter(s => s !== null);
+
+      if (STORIES.length > 0) {
+        console.log('[demo-stories] 加载完成，共', STORIES.length, '个故事');
+        renderStorySelector();
+        return;
+      }
+    }
+
+    // 数据库没有数据，使用备用数据
+    console.log('[demo-stories] 数据库无数据，使用内置备用数据');
+    STORIES = buildFallbackStories();
+    renderStorySelector();
+
+  } catch (err) {
+    console.error('[demo-stories] 加载失败:', err);
+    // 使用内置的备用数据
+    STORIES = buildFallbackStories();
+    renderStorySelector();
+  }
+}
+
+// 从 API 数据构建故事对象
+function buildStoryFromData(basic, detail) {
+  if (!detail.success) return null;
+
+  const paths = detail.paths || [];
+  console.log('[buildStoryFromData] paths:', paths);
+  console.log('[buildStoryFromData] 第一个 path 的坐标:', paths[0] ? {
+    from_lng: paths[0].from_lng,
+    from_lat: paths[0].from_lat,
+    to_lng: paths[0].to_lng,
+    to_lat: paths[0].to_lat
+  } : 'no paths');
+
+  const persons = detail.persons || [];
+
+  // 构建城市列表
+  const cities = [];
+  const cityMap = new Map();
+
+  paths.forEach((path, idx) => {
+    // 将坐标转换为数字（PostgreSQL 返回的是字符串）
+    const fromLng = parseFloat(path.from_lng ?? path.fromLng ?? 0);
+    const fromLat = parseFloat(path.from_lat ?? path.fromLat ?? 0);
+    const toLng = parseFloat(path.to_lng ?? path.toLng ?? 0);
+    const toLat = parseFloat(path.to_lat ?? path.toLat ?? 0);
+
+    // 起点城市
+    if (!cityMap.has(path.from_place)) {
+      cityMap.set(path.from_place, cities.length);
+      cities.push({
+        name: path.from_place,
+        lng: fromLng,
+        lat: fromLat,
+        color: getPathColor(path.reason_type),
+        label: `${path.person_role || ''}·${path.year || '?'}`,
+        story: `${path.person_name || path.person_role || '族人'} 在此生活，${path.year || '未知'}年${path.reason || '迁徙'}`
+      });
+    }
+
+    // 终点城市
+    if (!cityMap.has(path.to_place)) {
+      cityMap.set(path.to_place, cities.length);
+      cities.push({
+        name: path.to_place,
+        lng: toLng,
+        lat: toLat,
+        color: getPathColor(path.reason_type),
+        label: `${path.year || '?'}`,
+        story: `${path.year || '未知'}年迁居至此，${path.reason || ''}`
+      });
+    }
+  });
+
+  // 构建路线
+  const routes = paths.map((path, idx) => ({
+    from: cityMap.get(path.from_place),
+    to: cityMap.get(path.to_place),
+    color: getPathColor(path.reason_type),
+    width: 3,
+    label: path.reason || '迁徙',
+    year: path.year || '?',
+    event: path.reason || '家族迁徙',
+    desc: `${path.person_role || ''}${path.person_name || ''} 从 ${path.from_place} 迁往 ${path.to_place}`,
+    reason: path.reason || '',
+    narrative: path.narrative || null  // 添加叙事字段
+  }));
+
+  // 检查是否有无效坐标 (null 或 undefined，但允许 0)
+  const invalidCities = cities.filter(c => c.lng == null || c.lat == null || c.lng === 0 || c.lat === 0);
+  if (invalidCities.length > 0) {
+    console.warn('[buildStoryFromData] 以下城市缺少坐标:', invalidCities.map(c => `${c.name} (${c.lng},${c.lat})`));
+  }
+
+  return {
+    id: basic.id,
+    familyName: basic.familyName,
+    title: basic.title,
+    period: basic.period,
+    type: 'default',
+    color: getPathColor(paths[0]?.reason_type),
+    stats: basic.stats,
+    cities,
+    routes
+  };
+}
+
+// 根据 reason_type 获取路径颜色
+function getPathColor(reasonType) {
+  const colors = {
+    'survival': '#c8a96e',
+    'war': '#e07258',
+    'policy': '#3ec9a0',
+    'work': '#a890e0',
+    'study': '#6aabdc',
+    'family': '#3ec9a0',
+    'hope': '#gold2'
+  };
+  return colors[reasonType] || '#c8a96e';
+}
+
+// 备用数据（当 API 不可用时）
+function buildFallbackStories() {
+  return [
+    {
+      id: 1,
+      familyName: '林家',
+      title: '闯关东 (1890-1895)',
+      period: '清末',
+      type: 'survival',
+      color: '#c8a96e',
+      stats: { generations: 3, years: 5, cities: 3 },
+      cities: [
+        { name: '黄县', lng: 120.523, lat: 37.640, color: '#c8a96e', label: '起点·1875',
+          story: '林德福 1875 年生于山东登州府黄县，贫农之家，濒临黄海。清末灾荒连年，决定举家闯关东。' },
+        { name: '营口', lng: 122.235, lat: 40.667, color: '#e07258', label: '中转·1890',
+          story: '1890 年，乘船渡过渤海湾，在营口登陆。这是家族第一次踏上东北的土地。' },
+        { name: '哈尔滨', lng: 126.535, lat: 45.803, color: '#3ec9a0', label: '落脚·1895',
+          story: '1895 年北上垦荒，最终在哈尔滨附近定居。松花江畔的黑土地，成为新的家园。' }
+      ],
+      routes: [
+        { from: 0, to: 1, color: '#c8a96e', width: 3, label: '渡海闯关东', year: '1890',
+          event: '举家渡海', desc: '带着全部家当，乘木船渡过渤海湾。这是生死未卜的旅程。', reason: '闯关东逃荒',
+          narrative: `「那天凌晨，天还没亮，父亲就把我叫醒。家里所有值钱的东西，就是几件破衣服和一袋干粮。
+
+码头上全是人，大家都沉默着，没人知道过了海会是什么日子。船很小，浪很大，母亲抱着妹妹一直在哭。
+
+我说别怕，过了海就有好日子了。可我自己心里也没底……」` },
+        { from: 1, to: 2, color: '#e07258', width: 3, label: '北上垦荒', year: '1895',
+          event: '北上垦荒', desc: '从营口一路北上，在哈尔滨附近开垦荒地，定居下来。', reason: '垦荒定居',
+          narrative: `「在营口歇了两年，还是站不住脚。听说北边有荒地可以开垦，咬咬牙又往北走。
+
+一路上全是土路，马车走了半个月。到哈尔滨那天，下着大雪，天地间白茫茫一片。
+
+我指着脚下的地说，就在这里了，这辈子再也不挪窝。没想到，这一待就是三代人……」` }
+      ]
+    },
+    {
+      id: 2,
+      familyName: '陈家',
+      title: '抗战西迁 (1937-1946)',
+      period: '抗战',
+      type: 'war',
+      color: '#e07258',
+      stats: { generations: 3, years: 9, cities: 3 },
+      cities: [
+        { name: '南京', lng: 118.796, lat: 32.060, color: '#6aabdc', label: '起点·1902',
+          story: '陈文渊 1902 年生于南京，中央大学教授。1937 年抗战爆发，被迫举家西迁。' },
+        { name: '武汉', lng: 114.305, lat: 30.593, color: '#e07258', label: '中转·1937',
+          story: '1937 年 8 月，淞沪会战爆发，全家紧急撤离南京，抵达武汉暂避。' },
+        { name: '重庆', lng: 106.551, lat: 29.563, color: '#c8a96e', label: '避难·1938-1946',
+          story: '1938 年武汉告急，再迁重庆。在歌乐山脚下，度过了 8 年抗战岁月。1946 年胜利还乡。' }
+      ],
+      routes: [
+        { from: 0, to: 1, color: '#6aabdc', width: 3, label: '撤离南京', year: '1937',
+          event: '紧急西撤', desc: '淞沪会战爆发，南京告急。全家乘船沿长江西上，抵达武汉。', reason: '抗战爆发举家西迁',
+          narrative: `「1937 年 8 月 13 日，淞沪会战爆发。南京城里的空气每天都绷得紧紧的。
+
+15 号那天，学校通知我紧急撤离。我只来得及收拾几箱书，还有文渊的手稿。码头上人山人海，船票早就卖光了。
+
+最后是一位熟识的船长，看我们是教书的，悄悄让我们上了船。回头望着南京的方向，心里想，什么时候才能回来啊……」` },
+        { from: 1, to: 2, color: '#e07258', width: 3, label: '再迁重庆', year: '1938',
+          event: '武汉会战', desc: '1938 年 6 月武汉会战爆发，全家再次西迁至重庆。', reason: '武汉会战避难',
+          narrative: `「在武汉待了不到一年，日本人已经打到安庆了。1938 年春天，我们跟着中央大学的队伍往重庆撤。
+
+一路上走的都是山路，汽车在悬崖边上开，下面是万丈深渊。
+
+到了重庆，住在歌乐山脚下，房子是土坯的，下雨天漏水。但好歹一家人在一起，孩子们还能继续读书……」` },
+        { from: 2, to: 0, color: '#3ec9a0', width: 3, label: '胜利还乡', year: '1946',
+          event: '抗战胜利', desc: '1945 年 8 月抗战胜利，1946 年春天全家返回南京。', reason: '抗战胜利还乡',
+          narrative: `「1945 年 8 月 15 日那天，整个重庆都在放鞭炮。八年了，终于等到了。
+
+1946 年春天，我们坐船回南京。还是那个码头，还是那条长江，可已经不是当年的心情了。
+
+家里的老房子还在，虽然破败了不少。站在院子里，想起离开那天的慌乱，恍如隔世……」` }
+      ]
+    },
+    {
+      id: 3,
+      familyName: '赵家',
+      title: '三线建设 (1964-1982)',
+      period: '建国后',
+      type: 'policy',
+      color: '#3ec9a0',
+      stats: { generations: 2, years: 18, cities: 4 },
+      cities: [
+        { name: '上海', lng: 121.473, lat: 31.231, color: '#3ec9a0', label: '起点·1932',
+          story: '赵志刚 1932 年生于上海，石化厂工程师。1964 年响应号召支援大西北。' },
+        { name: '兰州', lng: 103.834, lat: 36.061, color: '#e07258', label: '支援·1964',
+          story: '1964 年，带着全家来到兰州石化基地。儿子赵建华 1958 年出生在这里。' },
+        { name: '西安', lng: 108.940, lat: 34.341, color: '#6aabdc', label: '求学·1978',
+          story: '1978 年，赵建华考入西安交通大学，离开兰州到西安读书。' },
+        { name: '上海', lng: 121.473, lat: 31.231, color: '#c8a96e', label: '回沪·1982',
+          story: '1982 年大学毕业，赵建华选择回到父亲当年离开的上海工作。' }
+      ],
+      routes: [
+        { from: 0, to: 1, color: '#3ec9a0', width: 3, label: '支援西北', year: '1964',
+          event: '三线建设', desc: '响应"好人好马上三线"号召，告别黄浦江，来到黄河边。', reason: '响应号召支援三线',
+          narrative: `「1964 年，厂里动员支援大西北。说是要建石化基地，需要技术骨干。我想都没想就报了名。秀英说，你去哪我去哪。
+
+把上海的房子退了，家具全送了人，就带着几件行李和儿子的奶粉，坐上西去的火车。三天三夜，到了兰州。
+
+一下车，满嘴都是土腥味。可这是自己选的路，跪着也要走下去……」` },
+        { from: 1, to: 2, color: '#6aabdc', width: 3, label: '考入大学', year: '1978',
+          event: '恢复高考', desc: '1977 年恢复高考，赵建华考入西安交大，离开兰州。', reason: '考入西安交大',
+          narrative: `「77 年冬天，广播里说恢复高考了。建华那小子高兴得跳起来，说他要考大学。那时候他都 19 岁了，在厂里当学徒。
+
+每天晚上干活回来，就点着煤油灯看书。第二年夏天，收到西安交大的录取通知书。全家人在厂门口放了一挂鞭炮。
+
+送他去车站那天，我没说话，就是拍着他的肩膀。他知道，这是咱们家翻身的机会……」` },
+        { from: 2, to: 0, color: '#c8a96e', width: 3, label: '回沪工作', year: '1982',
+          event: '大学毕业', desc: '1982 年毕业，赵建华选择回到祖辈生活过的上海。', reason: '大学毕业回沪工作',
+          narrative: `「82 年毕业，建华说想回上海。我没拦他，说你想去哪就去哪。他说爸，我想回咱们老家看看。
+
+我说好啊，你爷爷奶奶当年就是从上海出来的。他走那天，我送到火车站，看着火车远去。
+
+心里想，这辈子，总算是把根从上海挪到了兰州，又从兰州散到了四面八方。可只要一家人平平安安，根在哪里，又有什么关系呢……」` }
+      ]
+    },
+    {
+      id: 4,
+      familyName: '周家',
+      title: '南下创业 (1985-2010)',
+      period: '改革开放',
+      type: 'work',
+      color: '#a890e0',
+      stats: { generations: 2, years: 25, cities: 3 },
+      cities: [
+        { name: '沈阳', lng: 123.431, lat: 41.805, color: '#a890e0', label: '起点·1965',
+          story: '周志强 1965 年生于沈阳，国企工人。1985 年下岗后决定南下创业。' },
+        { name: '深圳', lng: 114.057, lat: 22.543, color: '#3ec9a0', label: '创业·1985',
+          story: '1985 年来到深圳特区，从打工开始，后来创业。妻子李梅 1987 年也来到深圳。' },
+        { name: '广州', lng: 113.264, lat: 23.129, color: '#6aabdc', label: '发展·2010',
+          story: '2010 年，儿子周天宇工作调动到广州，在这里安家立业。' }
+      ],
+      routes: [
+        { from: 0, to: 1, color: '#a890e0', width: 3, label: '南下打工', year: '1985',
+          event: '改革开放', desc: '国企下岗，带着 200 元钱和一身胆量，南下深圳。', reason: '南下打工创业',
+          narrative: `「85 年，厂里说下岗就下岗了。拿了 500 块补偿金，留了 200 块，剩下的都给家里。梅子说，要不咱做点小生意？
+
+我说要做就去深圳，那是特区，有机会。走那天，儿子才 5 岁，抱着我的腿哭。我说爸爸去挣钱，回来给你买大房子。
+
+其实心里一点底都没有，就知道那边要人肯吃苦……」` },
+        { from: 0, to: 1, color: '#3ec9a0', width: 3, label: '夫妻团聚', year: '1987',
+          event: '家庭团聚', desc: '妻子李梅辞去工作，来到深圳与丈夫团聚。', reason: '夫妻团聚',
+          narrative: `「志强走了两年，梅子在家照顾老人孩子。87 年春天，她说要去深圳找志强。家里人都拦着，说一个女人家跑那么远不安全。
+
+她说我不管，夫妻总不能一辈子两地分居。到深圳那天，志强来接她，瘦得不成样子。
+
+他说你来了就好，咱俩一起干，总能把日子过起来……」` },
+        { from: 1, to: 2, color: '#6aabdc', width: 3, label: '工作调动', year: '2010',
+          event: '事业发展', desc: '儿子周天宇因工作调动，从深圳迁居广州。', reason: '工作调动',
+          narrative: `「天宇从小就聪明，考上了广州的大学，后来在深圳工作。10 年说公司要调他去广州，做区域经理。
+
+我说好啊，离家近。他说爸，你和妈要不要一起过来？我说我们老了，在深圳挺好的，你去了好好干。
+
+他走那天，梅子哭了，说孩子长大了，飞得越来越远。可这不就是我们想要的吗……」` }
+      ]
+    }
+  ];
+}
+
+// 渲染故事选择器
+function renderStorySelector() {
+  const container = document.getElementById('story-selector');
+  container.innerHTML = STORIES.map((story, idx) => `
+    <div class="story-chip ${idx === currentStoryIndex ? 'active' : ''}" onclick="selectStory(${idx})">
+      <div class="chip-dot"></div>
+      ${story.familyName}·${story.period}
+    </div>
+  `).join('');
+}
+
+// 选择故事
+function selectStory(idx) {
+  if (idx === currentStoryIndex) return;
+  currentStoryIndex = idx;
+
+  // 切换故事时关闭所有弹窗并重置位置
+  closeAllPopups();
+
+  renderStorySelector();
+  renderMapContent();
+}
+
+// 关闭所有弹窗并重置位置
+function closeAllPopups() {
+  // 关闭叙事弹窗
+  closeNarrativePopup();
+
+  // 关闭城市弹窗
+  closeCity();
+
+  // 隐藏事件卡片
+  const eventEl = document.getElementById('migration-event');
+  if (eventEl) {
+    eventEl.classList.remove('visible');
+    // 重置卡片位置
+    eventEl.style.left = '50%';
+    eventEl.style.top = '16px';
+    eventEl.style.transform = 'translateX(-50%)';
+  }
+}
+
+// 渲染地图内容
+function renderMapContent() {
+  const story = STORIES[currentStoryIndex];
+  if (!amapInstance) return;
+  if (!story || !story.cities || !story.routes) {
+    console.warn('[renderMapContent] 故事数据不完整:', story);
+    return;
+  }
+
+  // 清除旧元素
+  currentPolylines.forEach(p => p.setMap(null));
+  currentMarkers.forEach(m => m.setMap(null));
+  currentPolylines = [];
+  currentMarkers = [];
+
+  // 更新标题
+  document.getElementById('map-title').textContent = `${story.familyName}迁徙路径 · ${story.routes.length}段`;
+
+  // 更新芯片
+  renderChips(story);
+
+  // 隐藏事件卡片
+  document.getElementById('migration-event').classList.remove('visible');
+
+  // 初始显示完整地图（不聚焦到特定区域）
+  fitStoryBoundsWithCurves(story);
+
+  // 重新开始动画
+  setTimeout(() => startSequence(), 600);
+}
+
+// 渲染迁徙芯片
+function renderChips(story) {
+  const container = document.getElementById('chips-container');
+  container.innerHTML = story.routes.map((route, idx) => `
+    <div class="chip on" onclick="focusRoute(${idx})">
+      <div class="chip-d" style="background:${route.color}"></div>
+      ${route.label}<span class="chip-y">${route.year}</span>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// 高德地图初始化
+// ============================================================
+function initMap() {
+  AMapLoader.load({
+    key: 'b05662825818663084ef068e06bf9744',
+    version: '2.0',
+    plugins: ['AMap.Geocoder'],
+    serviceHost: 'https://f.aifeisu.cn/_AMapService',
+  }).then(AMap => {
+    window.AMap = AMap;
+    amapInstance = new AMap.Map('amap-container', {
+      zoom: 5,
+      center: [113, 35],
+      mapStyle: 'amap://styles/dark',
+      features: ['bg', 'road', 'building', 'point'],
+    });
+
+    document.getElementById('map-loading').style.display = 'none';
+    console.log('[AMap] 地图初始化成功');
+
+    // 渲染第一个故事
+    renderMapContent();
+  }).catch(err => {
+    console.warn('[AMap] 加载失败:', err);
+    document.getElementById('map-loading').innerHTML =
+      '<div style="font-size:13px;color:var(--mist2);padding:20px;text-align:center;">地图加载失败<br>请检查网络或 API Key</div>';
+  });
+}
+
+// ============================================================
+// 调整地图视野到故事覆盖的区域
+// ============================================================
+function fitStoryBounds(story) {
+  const cities = story.cities.filter(c => c.lng && c.lat && c.lng !== 0 && c.lat !== 0);
+  if (cities.length === 0) return;
+
+  // 计算所有城市的边界
+  let minLng = Infinity, maxLng = -Infinity;
+  let minLat = Infinity, maxLat = -Infinity;
+
+  cities.forEach(city => {
+    minLng = Math.min(minLng, city.lng);
+    maxLng = Math.max(maxLng, city.lng);
+    minLat = Math.min(minLat, city.lat);
+    maxLat = Math.max(maxLat, city.lat);
+  });
+
+  // 计算中心点
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+
+  // 根据跨度计算合适的缩放级别
+  const lngSpan = maxLng - minLng;
+  const latSpan = maxLat - minLat;
+  const maxSpan = Math.max(lngSpan, latSpan);
+
+  // 跨度越大，zoom 越小（显示更广的范围）
+  let zoom;
+  if (maxSpan > 20) zoom = 4;
+  else if (maxSpan > 15) zoom = 5;
+  else if (maxSpan > 10) zoom = 6;
+  else if (maxSpan > 5) zoom = 7;
+  else zoom = 8;
+
+  console.log(`[fitStoryBounds] ${story.familyName}: 中心=[${centerLng.toFixed(2)}, ${centerLat.toFixed(2)}], zoom=${zoom}, 跨度=${maxSpan.toFixed(1)}`);
+
+  amapInstance.setZoomAndCenter(zoom, [centerLng, centerLat], false, 800);
+}
+
+// ============================================================
+// 调整地图视野到故事覆盖的区域（考虑贝塞尔曲线高度）
+// ============================================================
+function fitStoryBoundsWithCurves(story) {
+  const cities = story.cities.filter(c => c.lng && c.lat && c.lng !== 0 && c.lat !== 0);
+  if (cities.length === 0) return;
+
+  // 计算所有城市的边界
+  let minLng = Infinity, maxLng = -Infinity;
+  let minLat = Infinity, maxLat = -Infinity;
+
+  cities.forEach(city => {
+    minLng = Math.min(minLng, city.lng);
+    maxLng = Math.max(maxLng, city.lng);
+    minLat = Math.min(minLat, city.lat);
+    maxLat = Math.max(maxLat, city.lat);
+  });
+
+  // 考虑贝塞尔曲线的拱形高度（控制点向上偏移 2.5 度）
+  // 曲线的最高点大约在 midLat + 2.5
+  const curveHeight = 2.5;
+
+  // 计算包含曲线的边界
+  const lngSpan = maxLng - minLng;
+  const latSpan = maxLat - minLat;
+
+  // 曲线会向上拱起，需要扩展上边界
+  const adjustedMaxLat = maxLat + curveHeight;
+  const adjustedLatSpan = adjustedMaxLat - minLat;
+
+  // 计算中心点（考虑曲线高度）
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + adjustedMaxLat) / 2;
+
+  // 根据调整后的跨度计算缩放级别
+  const maxSpan = Math.max(lngSpan, adjustedLatSpan);
+
+  // 留出边距：跨度越小，zoom 越小（显示更多周围区域）
+  let zoom;
+  if (maxSpan > 25) zoom = 3;
+  else if (maxSpan > 20) zoom = 4;
+  else if (maxSpan > 15) zoom = 5;
+  else if (maxSpan > 10) zoom = 6;
+  else if (maxSpan > 5) zoom = 7;
+  else zoom = 8;
+
+  // 额外减小 1 级 zoom 以显示更多曲线周围空间
+  zoom = Math.max(4, zoom - 1);
+
+  console.log(`[fitStoryBoundsWithCurves] ${story.familyName}: 中心=[${centerLng.toFixed(2)}, ${centerLat.toFixed(2)}], zoom=${zoom}, 跨度=${maxSpan.toFixed(1)}`);
+
+  amapInstance.setZoomAndCenter(zoom, [centerLng, centerLat], false, 800);
+}
+
+// ============================================================
+// 地图动画序列
+// ============================================================
+function startSequence() {
+  const story = STORIES[currentStoryIndex];
+  const cities = story.cities;
+  const routes = story.routes;
+
+  // 创建城市坐标数组
+  const coords = cities.map(city => {
+    // 检查坐标是否有效（不为 null/undefined 且不为 0）
+    if (city.lng == null || city.lat == null || city.lng === 0 || city.lat === 0) {
+      console.warn('[startSequence] 城市坐标无效:', city.name, city.lng, city.lat);
+      return null;
+    }
+    return new AMap.LngLat(city.lng, city.lat);
+  });
+
+  // 创建标记（全透明）
+  const markers = cities.map((city, idx) => {
+    const pos = coords[idx];
+    if (!pos) return null;
+
+    const marker = new AMap.Marker({
+      position: pos,
+      title: city.name,
+      opacity: 0,
+      extData: { city, index: idx }
+    });
+
+    marker.on('click', () => openCity(city, idx));
+    marker.setMap(amapInstance);
+    currentMarkers.push(marker);
+    return marker;
+  });
+
+  // 创建路径（初始不添加到地图）
+  const polylineData = [];
+  routes.forEach((route, routeIdx) => {
+    const fromPos = coords[route.from];
+    const toPos = coords[route.to];
+
+    // 跳过无效的路线（坐标为 null）
+    if (!fromPos || !toPos) {
+      console.warn('[startSequence] 跳过无效路线:', routeIdx, route);
+      return;
+    }
+
+    // 创建贝塞尔曲线控制点
+    const midLng = (fromPos.getLng() + toPos.getLng()) / 2;
+    const midLat = (fromPos.getLat() + toPos.getLat()) / 2 + 2.5;
+
+    // 生成曲线点
+    const pts = bezierPoints(fromPos, { lng: midLng, lat: midLat }, toPos, 60);
+
+    polylineData.push({
+      route,
+      routeIdx,
+      path: pts,
+      fromMarker: markers[route.from],
+      toMarker: markers[route.to]
+    });
+  });
+
+  // 启动序列动画
+  polylineData.forEach(data => {
+    startPathAnimation(data.routeIdx, data.route, data.path, data.fromMarker, data.toMarker);
+  });
+}
+
+// 贝塞尔曲线
+function bezierPoints(p0, p1, p2, steps) {
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = (1 - t) * (1 - t) * p0.getLng() + 2 * (1 - t) * t * p1.lng + t * t * p2.getLng();
+    const y = (1 - t) * (1 - t) * p0.getLat() + 2 * (1 - t) * t * p1.lat + t * t * p2.getLat();
+    points.push(new AMap.LngLat(x, y));
+  }
+  return points;
+}
+
+// 单段路径动画
+function startPathAnimation(idx, route, path, fromMarker, toMarker) {
+  const story = STORIES[currentStoryIndex];
+  const delay = idx * 5500; // 每段间隔 5.5 秒
+  const totalDuration = delay + 1500 + 4000; // 总耗时
+
+  // 1. 起点出现
+  setTimeout(() => {
+    if (fromMarker) {
+      fromMarker.setOptions({ opacity: 1 });
+    }
+  }, delay);
+
+  // 2. 显示事件卡片
+  setTimeout(() => {
+    showEvent(route, story, idx);
+  }, delay + 800);
+
+  // 3. 路径绘制（在时延后创建并绘制 polyline）
+  setTimeout(() => {
+    drawPolylineAnimate(path, route, 4000);
+  }, delay + 1500);
+
+  // 4. 终点出现
+  setTimeout(() => {
+    if (toMarker) {
+      toMarker.setOptions({ opacity: 1 });
+    }
+  }, totalDuration - 300);
+
+  // 5. 最后一段动画结束后，调整视野显示完整曲线
+  const isLastRoute = idx === story.routes.length - 1;
+  if (isLastRoute) {
+    setTimeout(() => {
+      fitStoryBoundsWithCurves(story);
+    }, totalDuration + 500);
+  }
+}
+
+// 路径绘制动画
+function drawPolylineAnimate(path, route, duration) {
+  if (!path || path.length === 0) return;
+
+  const steps = path.length;
+  const interval = Math.max(duration / steps, 16);
+
+  // 创建初始 polyline（空路径）
+  const polyline = new AMap.Polyline({
+    strokeColor: route.color,
+    strokeWeight: route.width,
+    strokeOpacity: 0.9,
+    strokeStyle: 'solid',
+    lineJoin: 'round',
+    lineCap: 'round',
+  });
+
+  polyline.setMap(amapInstance);
+  polyline.setPath([path[0]]);  // 设置初始路径为第一个点
+  currentPolylines.push(polyline);
+
+  let drawn = 1;
+  const timer = setInterval(() => {
+    if (drawn >= steps) {
+      clearInterval(timer);
+      return;
+    }
+    polyline.setPath(path.slice(0, drawn + 1));
+    drawn++;
+  }, interval);
+}
+
+// ============================================================
+// 事件卡片显示
+// ============================================================
+function showEvent(route, story, idx) {
+  const eventEl = document.getElementById('migration-event');
+  if (!eventEl) return;
+
+  const cityFrom = story.cities[route.from];
+  const cityTo = story.cities[route.to];
+
+  document.getElementById('event-title').textContent = route.event;
+  document.getElementById('event-desc').textContent = route.desc;
+  document.getElementById('event-year-inline').textContent = route.year;
+  document.getElementById('event-route-text').textContent = `${cityFrom?.name || ''} → ${cityTo?.name || ''}`;
+
+  eventEl.classList.add('visible');
+}
+
+// ============================================================
+// 城市弹窗（旧版，保留兼容性）
+// ============================================================
+function openCity(city, cityIndex) {
+  // 检查当前故事和路线
+  const story = STORIES[currentStoryIndex];
+  if (!story) return;
+
+  // 查找是否有以该城市为起点的路线
+  const routeFromHere = story.routes.find((r, idx) => {
+    // 检查路线的 from 是否指向这个城市
+    const fromCity = story.cities[r.from];
+    return fromCity && fromCity.name === city.name;
+  });
+
+  // 或者查找是否有以该城市为终点的路线
+  const routeToHere = story.routes.find((r, idx) => {
+    const toCity = story.cities[r.to];
+    return toCity && toCity.name === city.name;
+  });
+
+  // 优先显示路线相关的叙事，否则显示城市故事
+  if (routeFromHere) {
+    showNarrativePopup(
+      city.name,
+      `${story.cities[routeFromHere.from]?.name || ''} → ${story.cities[routeFromHere.to]?.name || ''}`,
+      routeFromHere.narrative || city.story
+    );
+  } else if (routeToHere) {
+    showNarrativePopup(
+      city.name,
+      `${story.cities[routeToHere.from]?.name || ''} → ${story.cities[routeToHere.to]?.name || ''}`,
+      routeToHere.narrative || city.story
+    );
+  } else {
+    // 没有关联路线，显示旧版城市弹窗
+    const pop = document.getElementById('city-pop');
+    document.getElementById('cp-name').textContent = city.name;
+    document.getElementById('cp-meta').textContent = city.label;
+    document.getElementById('cp-story').textContent = city.story;
+    pop.classList.add('visible');
+  }
+}
+
+function closeCity() {
+  document.getElementById('city-pop').classList.remove('visible');
+}
+
+// ============================================================
+// 叙事弹窗（新版可拖拽）
+// ============================================================
+function showNarrativePopup(location, route, narrative) {
+  // 如果已经显示，不再重复打开
+  if (narrativePopupVisible) return;
+
+  const popup = document.getElementById('narrative-popup');
+  if (!popup) return;
+
+  document.getElementById('np-location').textContent = location;
+  document.getElementById('np-route').textContent = route;
+
+  // 格式化叙事文本为段落
+  const narrativeContent = formatNarrative(narrative || '暂无详细叙述');
+  document.getElementById('np-narrative').innerHTML = narrativeContent;
+
+  popup.classList.add('visible');
+  narrativePopupVisible = true;
+}
+
+// 格式化叙事文本
+function formatNarrative(text) {
+  if (!text) return '<p>暂无详细叙述</p>';
+
+  // 去除首尾空格
+  text = text.trim();
+
+  // 去除开头的引号
+  const hasQuotePrefix = text.startsWith('"') || text.startsWith('"');
+  if (hasQuotePrefix) {
+    text = text.slice(1);
+  }
+
+  // 去除结尾的引号
+  const hasQuoteSuffix = text.endsWith('"') || text.endsWith('"');
+  if (hasQuoteSuffix) {
+    text = text.slice(0, -1);
+  }
+
+  // 按换行符分割段落（支持 \n 或 \r\n）
+  const rawParagraphs = text.split(/\n+/);
+  const paragraphs = rawParagraphs.filter(p => p.trim());
+
+  // 如果没有有效段落，返回原文本
+  if (paragraphs.length === 0) {
+    return `<p>${text}</p>`;
+  }
+
+  // 生成 HTML 段落
+  return paragraphs.map((p, idx) => {
+    p = p.trim();
+    if (!p) return '';
+
+    // 检查是否为引用（以破折号开头）
+    if (p.startsWith('——') || p.startsWith('—')) {
+      return `<div class="quote">${p}</div>`;
+    }
+
+    return `<p>${p}</p>`;
+  }).filter(p => p).join('<div class="np-divider"></div>');
+}
+
+function closeNarrativePopup() {
+  const popup = document.getElementById('narrative-popup');
+  if (popup) {
+    popup.classList.remove('visible');
+  }
+  narrativePopupVisible = false;
+
+  // 重置拖拽位置
+  popup.style.left = '50%';
+  popup.style.top = '120px';
+  popup.style.transform = 'translateX(-50%)';
+  popup.style.position = 'absolute';
+}
+
+// ============================================================
+// 拖拽功能
+// ============================================================
+let isDraggingPopup = false;
+let popupDragOffsetX = 0;
+let popupDragOffsetY = 0;
+let isDraggingEvent = false;
+let eventDragOffsetX = 0;
+let eventDragOffsetY = 0;
+
+function initPopupDrag() {
+  const popup = document.getElementById('narrative-popup');
+  if (!popup) return;
+
+  // 鼠标按下开始拖拽
+  popup.addEventListener('mousedown', (e) => {
+    // 关闭按钮不触发拖拽
+    if (e.target.classList.contains('np-close')) return;
+
+    isDraggingPopup = true;
+    const rect = popup.getBoundingClientRect();
+    popupDragOffsetX = e.clientX - rect.left;
+    popupDragOffsetY = e.clientY - rect.top;
+
+    // 移除 transform 以便自由拖拽
+    popup.style.transform = 'none';
+    popup.style.left = rect.left + 'px';
+    popup.style.top = rect.top + 'px';
+
+    e.preventDefault();
+  });
+
+  // 鼠标移动
+  document.addEventListener('mousemove', (e) => {
+    if (!isDraggingPopup) return;
+
+    const x = e.clientX - popupDragOffsetX;
+    const y = e.clientY - popupDragOffsetY;
+
+    // 限制在视口范围内
+    const rect = popup.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width;
+    const maxY = window.innerHeight - rect.height;
+
+    popup.style.left = Math.max(10, Math.min(x, maxX)) + 'px';
+    popup.style.top = Math.max(10, Math.min(y, maxY)) + 'px';
+  });
+
+  // 鼠标释放
+  document.addEventListener('mouseup', () => {
+    isDraggingPopup = false;
+  });
+
+  // 触摸支持
+  popup.addEventListener('touchstart', (e) => {
+    if (e.target.classList.contains('np-close')) return;
+
+    isDraggingPopup = true;
+    const touch = e.touches[0];
+    const rect = popup.getBoundingClientRect();
+    popupDragOffsetX = touch.clientX - rect.left;
+    popupDragOffsetY = touch.clientY - rect.top;
+
+    popup.style.transform = 'none';
+    popup.style.left = rect.left + 'px';
+    popup.style.top = rect.top + 'px';
+
+    e.preventDefault();
+  });
+
+  popup.addEventListener('touchmove', (e) => {
+    if (!isDraggingPopup) return;
+
+    const touch = e.touches[0];
+    const x = touch.clientX - popupDragOffsetX;
+    const y = touch.clientY - popupDragOffsetY;
+
+    const rect = popup.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width;
+    const maxY = window.innerHeight - rect.height;
+
+    popup.style.left = Math.max(10, Math.min(x, maxX)) + 'px';
+    popup.style.top = Math.max(10, Math.min(y, maxY)) + 'px';
+
+    e.preventDefault();
+  });
+
+  popup.addEventListener('touchend', () => {
+    isDraggingPopup = false;
+  });
+
+  // ===== 事件卡片拖拽 =====
+  const eventCard = document.getElementById('migration-event');
+  if (eventCard) {
+    eventCard.addEventListener('mousedown', (e) => {
+      isDraggingEvent = true;
+      eventCard.classList.add('dragging');
+      const rect = eventCard.getBoundingClientRect();
+      eventDragOffsetX = e.clientX - rect.left;
+      eventDragOffsetY = e.clientY - rect.top;
+
+      eventCard.style.transform = 'none';
+      eventCard.style.left = rect.left + 'px';
+      eventCard.style.top = rect.top + 'px';
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDraggingEvent) return;
+
+      const x = e.clientX - eventDragOffsetX;
+      const y = e.clientY - eventDragOffsetY;
+
+      const rect = eventCard.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+
+      eventCard.style.left = Math.max(10, Math.min(x, maxX)) + 'px';
+      eventCard.style.top = Math.max(10, Math.min(y, maxY)) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDraggingEvent = false;
+      eventCard.classList.remove('dragging');
+    });
+
+    // 触摸支持
+    eventCard.addEventListener('touchstart', (e) => {
+      isDraggingEvent = true;
+      eventCard.classList.add('dragging');
+      const touch = e.touches[0];
+      const rect = eventCard.getBoundingClientRect();
+      eventDragOffsetX = touch.clientX - rect.left;
+      eventDragOffsetY = touch.clientY - rect.top;
+
+      eventCard.style.transform = 'none';
+      eventCard.style.left = rect.left + 'px';
+      eventCard.style.top = rect.top + 'px';
+
+      e.preventDefault();
+    });
+
+    eventCard.addEventListener('touchmove', (e) => {
+      if (!isDraggingEvent) return;
+
+      const touch = e.touches[0];
+      const x = touch.clientX - eventDragOffsetX;
+      const y = touch.clientY - eventDragOffsetY;
+
+      const rect = eventCard.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+
+      eventCard.style.left = Math.max(10, Math.min(x, maxX)) + 'px';
+      eventCard.style.top = Math.max(10, Math.min(y, maxY)) + 'px';
+
+      e.preventDefault();
+    });
+
+    eventCard.addEventListener('touchend', () => {
+      isDraggingEvent = false;
+      eventCard.classList.remove('dragging');
+    });
+  }
+}
+
+// 初始化拖拽
+document.addEventListener('DOMContentLoaded', () => {
+  initPopupDrag();
+});
+
+// ============================================================
+// 聚焦路线
+// ============================================================
+function focusRoute(idx) {
+  const story = STORIES[currentStoryIndex];
+  if (!story) {
+    console.warn('[focusRoute] 没有当前故事');
+    return;
+  }
+
+  const route = story.routes[idx];
+  if (!route) {
+    console.warn('[focusRoute] 路线不存在，idx:', idx);
+    return;
+  }
+
+  // 检查 from 和 to 索引是否有效
+  if (route.from === undefined || route.to === undefined) {
+    console.warn('[focusRoute] 路线索引缺失:', route);
+    return;
+  }
+
+  const cityFrom = story.cities[route.from];
+  const cityTo = story.cities[route.to];
+
+  // 检查城市数据是否有效
+  if (!cityFrom || !cityTo) {
+    console.warn('[focusRoute] 城市数据缺失:', { cityFrom, cityTo, route });
+    return;
+  }
+
+  // 检查坐标是否是有效数字
+  const validFromLng = typeof cityFrom.lng === 'number' && cityFrom.lng !== 0 && !isNaN(cityFrom.lng);
+  const validFromLat = typeof cityFrom.lat === 'number' && cityFrom.lat !== 0 && !isNaN(cityFrom.lat);
+  const validToLng = typeof cityTo.lng === 'number' && cityTo.lng !== 0 && !isNaN(cityTo.lng);
+  const validToLat = typeof cityTo.lat === 'number' && cityTo.lat !== 0 && !isNaN(cityTo.lat);
+
+  if (!validFromLng || !validFromLat || !validToLng || !validToLat) {
+    console.warn('[focusRoute] 城市坐标无效:', {
+      from: { lng: cityFrom.lng, lat: cityFrom.lat },
+      to: { lng: cityTo.lng, lat: cityTo.lat }
+    });
+    return;
+  }
+
+  // 计算两点连线的中点和合适的缩放级别
+  const midLng = (cityFrom.lng + cityTo.lng) / 2;
+  const midLat = (cityFrom.lat + cityTo.lat) / 2;
+
+  // 计算两点之间的距离（经纬度跨度）
+  const lngDiff = Math.abs(cityFrom.lng - cityTo.lng);
+  const latDiff = Math.abs(cityFrom.lat - cityTo.lat);
+  const maxDiff = Math.max(lngDiff, latDiff);
+
+  // 根据距离计算缩放级别，确保可以看到完整的贝塞尔曲线
+  // 跨度越大，zoom 越小；额外减小 1-2 级以留出边距
+  let zoom;
+  if (maxDiff > 20) zoom = 4;
+  else if (maxDiff > 15) zoom = 5;
+  else if (maxDiff > 10) zoom = 6;
+  else if (maxDiff > 5) zoom = 7;
+  else zoom = 8;
+
+  console.log(`[focusRoute] 聚焦路线：${cityFrom.name}→${cityTo.name}, 中心=[${midLng.toFixed(2)}, ${midLat.toFixed(2)}], zoom=${zoom}`);
+  amapInstance.setZoomAndCenter(zoom, [midLng, midLat], false, 800);
+
+  // 清除所有旧元素
+  currentPolylines.forEach(p => p.setMap(null));
+  currentMarkers.forEach(m => m.setMap(null));
+  currentPolylines = [];
+  currentMarkers = [];
+
+  // 只显示当前路线的起点和终点标记
+  const fromMarker = new AMap.Marker({
+    position: new AMap.LngLat(cityFrom.lng, cityFrom.lat),
+    title: cityFrom.name,
+    opacity: 1
+  });
+  const toMarker = new AMap.Marker({
+    position: new AMap.LngLat(cityTo.lng, cityTo.lat),
+    title: cityTo.name,
+    opacity: 1
+  });
+
+  // 为标记添加点击事件
+  fromMarker.on('click', () => openCity(cityFrom));
+  toMarker.on('click', () => openCity(cityTo));
+
+  fromMarker.setMap(amapInstance);
+  toMarker.setMap(amapInstance);
+  currentMarkers.push(fromMarker, toMarker);
+
+  // 创建并动画显示当前路线
+  const midControlLng = (cityFrom.lng + cityTo.lng) / 2;
+  const midControlLat = (cityFrom.lat + cityTo.lat) / 2 + 2.5;
+  const path = bezierPoints(
+    new AMap.LngLat(cityFrom.lng, cityFrom.lat),
+    { lng: midControlLng, lat: midControlLat },
+    new AMap.LngLat(cityTo.lng, cityTo.lat),
+    60
+  );
+
+  drawPolylineAnimate(path, route, 2000);
+
+  // 显示事件卡片
+  showEvent(route, story, idx);
+}
+</script>
+</body>
+</html>

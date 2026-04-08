@@ -1,5 +1,5 @@
 // ============================================================
-// 家族迁徙平台 · 后端 API  [Agent 版]
+// 家族迁徙平台 · 后端 API  [调试增强版]
 // ============================================================
 
 const express = require('express');
@@ -120,9 +120,9 @@ function checkAI() {
   log.ok(`AI BaseURL: ${url || '(未设置，使用 Anthropic 默认)'}`);
 }
 
-// 统一模型名
+// 统一模型名——DashScope 用 qwen-plus，extract/story 也改为 qwen
 const QWEN_MODEL       = process.env.QWEN_MODEL       || 'qwen3.5-plus';
-const QWEN_MODEL_HEAVY = process.env.QWEN_MODEL_HEAVY || 'qwen-max';
+const QWEN_MODEL_HEAVY = process.env.QWEN_MODEL_HEAVY || 'qwen3-max-2026-01-23';   // extract/story 用更强的模型
 
 // ============================================================
 // 高德地图
@@ -201,6 +201,7 @@ async function geocodePlace(placeName) {
     return null;
   }
 
+
   log.ok(`地理编码成功: ${placeName} → ${geo.lng}, ${geo.lat} (${geo.formatted})`);
 
   // 3. 写入缓存
@@ -240,11 +241,10 @@ async function matchHistoricalEvents(year, region = 'national') {
 }
 
 // ============================================================
-// 路由：POST /amapapi/chat  流式对话（保留兼容）
+// 路由：POST /amapapi/chat  流式对话
 // ============================================================
 app.post('/amapapi/chat', async (req, res) => {
   const { messages, familyId } = req.body;
-  const startTime = Date.now();  // 修复：补充 startTime 声明
 
   log.ai(`[chat] 开始  轮次=${messages?.length || 0}  familyId=${familyId || '无'}`);
   log.ai(`[chat] 模型=${QWEN_MODEL}  最后消息: "${messages?.at(-1)?.content?.slice(0, 60) || ''}"`);
@@ -278,6 +278,7 @@ app.post('/amapapi/chat', async (req, res) => {
     stream.on('text', (text) => {
       fullText   += text;
       chunkCount += 1;
+      // 每5个chunk打印一次进度（避免刷屏）
       if (chunkCount % 5 === 1) {
         log.stream(` ·[stream chunk #${chunkCount}] "${text.slice(0, 30)}"`);
         process.stdout.write('\n');
@@ -294,6 +295,7 @@ app.post('/amapapi/chat', async (req, res) => {
       res.write(`data: ${JSON.stringify({ type: 'done', isComplete, familyId })}\n\n`);
       res.end();
 
+      // 优化：数据库更新改为非阻塞，不影响响应速度
       if (familyId) {
         db.query(
           `UPDATE chat_sessions SET messages=$1, is_complete=$2, updated_at=NOW()
@@ -307,8 +309,10 @@ app.post('/amapapi/chat', async (req, res) => {
       }
     });
 
+    // SDK 流错误（网络断开、token超限等）
     stream.on('error', (err) => {
       log.error('[chat] stream error:', err.message);
+      log.error('[chat] 错误详情:', JSON.stringify(err, null, 2));
       if (!res.writableEnded) {
         res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
         res.end();
@@ -316,7 +320,10 @@ app.post('/amapapi/chat', async (req, res) => {
     });
 
   } catch (err) {
+    // 同步层面错误（配置错误、网络无法连接等）
     log.error('[chat] 请求发起失败:', err.message);
+    log.error('[chat] status:', err.status);
+    log.error('[chat] 完整错误:', err);
     if (!res.writableEnded) {
       res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
       res.end();
@@ -325,7 +332,7 @@ app.post('/amapapi/chat', async (req, res) => {
 });
 
 // ============================================================
-// 路由：POST /amapapi/extract  结构化抽取（保留兼容）
+// 路由：POST /amapapi/extract  结构化抽取
 // ============================================================
 app.post('/amapapi/extract', async (req, res) => {
   const { conversationText, familyId } = req.body;
@@ -381,7 +388,7 @@ ${conversationText}`;
     const t0 = Date.now();
 
     const response = await anthropic.messages.create({
-      model:      QWEN_MODEL_HEAVY,
+      model:      QWEN_MODEL_HEAVY,  // ← 修复：统一用 qwen 模型
       max_tokens: 2000,
       messages:   [{ role: 'user', content: EXTRACTION_PROMPT }],
     });
@@ -404,8 +411,10 @@ ${conversationText}`;
       return res.status(500).json({ success: false, error: 'JSON解析失败: ' + parseErr.message, raw: cleanJson });
     }
 
+    // ── 写入数据库 ────────────────────────────────────────────
     let fid = familyId;
 
+    // 1. family_profile
     if (!fid) {
       const fp = await db.query(
         `INSERT INTO family_profiles (family_name, raw_input, status)
@@ -415,11 +424,13 @@ ${conversationText}`;
       fid = fp.rows[0].id;
       log.db(`[extract] 新建 family_profile  id=${fid}  name=${data.family_name}`);
     } else {
+      // ← 修复：重新分析时删除旧记录，避免重复
       log.db(`[extract] 重新分析，先删除旧数据 familyId=${fid}`);
       await db.query('DELETE FROM migrations WHERE family_id=$1', [fid]);
       await db.query('DELETE FROM persons WHERE family_id=$1', [fid]);
     }
 
+    // 2. 人物
     const personIdMap = {};
     for (const p of data.persons) {
       const result = await db.query(
@@ -433,6 +444,7 @@ ${conversationText}`;
       log.db(`[extract] 插入人物: ${p.role}(${p.internal_id}) → db.id=${result.rows[0].id}`);
     }
 
+    // 3. 迁徙事件
     for (const m of data.migrations) {
       log.info(`[extract] 处理迁徙: ${m.from_place} → ${m.to_place}  year=${m.year}`);
 
@@ -467,6 +479,7 @@ ${conversationText}`;
       log.db(`[extract] 迁徙已入库: ${m.from_place} → ${m.to_place}`);
     }
 
+    // 4. 完成
     await db.query(
       `UPDATE family_profiles SET status='ready', ai_confidence=0.85 WHERE id=$1`, [fid]
     );
@@ -489,6 +502,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
   log.info(`[migration-map] 查询 familyId=${familyId}`);
 
   try {
+    // 查询迁徙路径（包含 person_id 和 person_internal_id）
     const paths = await db.query(`
       SELECT
         m.id,
@@ -510,8 +524,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
         m.year,
         m.reason,
         m.reason_type,
-        m.emotion_weight,
-        m.narrative
+        m.emotion_weight
       FROM migrations m
       JOIN persons p ON m.person_id = p.id
       LEFT JOIN places fp ON m.from_place_id = fp.id
@@ -520,6 +533,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       ORDER BY m.sequence_order
     `, [familyId]);
 
+    // 处理返回数据：当 from_place/to_place 为空时，使用原始地名
     const processedPaths = paths.rows.map(row => ({
       ...row,
       from_place: row.from_place || row.from_place_raw || '未知',
@@ -528,7 +542,6 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       from_lat: row.from_lat,
       to_lng: row.to_lng,
       to_lat: row.to_lat,
-      narrative: row.narrative || null  // 保留叙事字段
     }));
 
     const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
@@ -544,6 +557,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       }
     }
 
+    // 检查是否有坐标缺失
     const missingCoords = processedPaths.filter(r => !r.from_lng || !r.to_lng);
     if (missingCoords.length > 0) {
       log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
@@ -566,7 +580,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
 });
 
 // ============================================================
-// 路由：GET /amapapi/demo-stories
+// 路由：GET /amapapi/demo-stories  获取演示家族故事列表
 // ============================================================
 app.get('/amapapi/demo-stories', async (req, res) => {
   log.info('[demo-stories] 获取演示家族故事列表');
@@ -615,6 +629,7 @@ app.get('/amapapi/demo-stories', async (req, res) => {
   }
 });
 
+// 辅助函数：获取故事标题
 function getStoryTitle(familyName) {
   const titles = {
     '林家': '闯关东 (1890-1895)',
@@ -625,6 +640,7 @@ function getStoryTitle(familyName) {
   return titles[familyName] || '家族迁徙';
 }
 
+// 辅助函数：获取故事时期
 function getStoryPeriod(familyName) {
   const periods = {
     '林家': '清末',
@@ -636,7 +652,7 @@ function getStoryPeriod(familyName) {
 }
 
 // ============================================================
-// 路由：POST /amapapi/save-edit/:familyId
+// 路由：POST /amapapi/save-edit/:familyId  保存编辑的迁徙/人物信息
 // ============================================================
 app.post('/amapapi/save-edit/:familyId', async (req, res) => {
   const { familyId } = req.params;
@@ -650,6 +666,7 @@ app.post('/amapapi/save-edit/:familyId', async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      // 更新人物信息
       if (personId) {
         const updates = [];
         const values = [];
@@ -677,6 +694,7 @@ app.post('/amapapi/save-edit/:familyId', async (req, res) => {
         }
       }
 
+      // 更新迁徙信息
       if (migrationId) {
         const updates = [];
         const values = [];
@@ -691,10 +709,13 @@ app.post('/amapapi/save-edit/:familyId', async (req, res) => {
           paramCount++;
           updates.push(`from_place_raw = $${paramCount}`);
           values.push(fromPlace);
+          // 尝试获取地名坐标
           const fromGeo = await geocodePlace(fromPlace);
           if (fromGeo) {
+            // 检查地名是否已存在
             const existingPlace = await client.query('SELECT id FROM places WHERE raw_name = $1', [fromPlace]);
             if (existingPlace.rows.length === 0) {
+              // 插入新地名
               await client.query(
                 `INSERT INTO places (raw_name, normalized_name, longitude, latitude) VALUES ($1, $2, $3, $4)`,
                 [fromPlace, fromGeo.formatted || fromPlace, fromGeo.lng, fromGeo.lat]
@@ -709,6 +730,7 @@ app.post('/amapapi/save-edit/:familyId', async (req, res) => {
           paramCount++;
           updates.push(`to_place_raw = $${paramCount}`);
           values.push(toPlace);
+          // 尝试获取地名坐标
           const toGeo = await geocodePlace(toPlace);
           if (toGeo) {
             const existingPlace = await client.query('SELECT id FROM places WHERE raw_name = $1', [toPlace]);
@@ -801,7 +823,7 @@ beat_type 枚举: anchor | person | danger | meeting | choice | arrival | silenc
 
     const t0 = Date.now();
     const response = await anthropic.messages.create({
-      model:      QWEN_MODEL_HEAVY,
+      model:      QWEN_MODEL_HEAVY,   // ← 修复：统一用 qwen 模型
       max_tokens: 3000,
       messages:   [{ role: 'user', content: STORY_PROMPT }],
     });
@@ -817,6 +839,7 @@ beat_type 枚举: anchor | person | danger | meeting | choice | arrival | silenc
       log.ok(`[generate-story] JSON解析成功  chapters=${storyData.chapters?.length}`);
     } catch (parseErr) {
       log.error('[generate-story] JSON解析失败:', parseErr.message);
+      log.error('[generate-story] 原始内容:', cleanJson.slice(0, 500));
       return res.status(500).json({ success: false, error: 'JSON解析失败', raw: cleanJson });
     }
 
@@ -835,6 +858,7 @@ beat_type 枚举: anchor | person | danger | meeting | choice | arrival | silenc
 
   } catch (err) {
     log.error('[generate-story] 异常:', err.message);
+    log.error('[generate-story] stack:', err.stack);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -853,7 +877,7 @@ app.get('/amapapi/geocode', async (req, res) => {
 });
 
 // ============================================================
-// 路由：GET /amapapi/health
+// 路由：GET /amapapi/health  健康检查
 // ============================================================
 app.get('/amapapi/health', async (req, res) => {
   const health = {
@@ -877,604 +901,6 @@ app.get('/amapapi/health', async (req, res) => {
 });
 
 // ============================================================
-// 路由：GET /amapapi/check-data
-// 数据健康检查
-// ============================================================
-app.get('/amapapi/check-data', async (req, res) => {
-  log.info('[check-data] 开始数据健康检查');
-
-  try {
-    const issues = {
-      missing_coords: [],
-      orphan_migrations: [],
-      orphan_places: [],
-      orphan_persons: [],
-      incomplete_families: [],
-    };
-
-    // 1. 检查缺少坐标的迁徙记录
-    const missingCoords = await db.query(`
-      SELECT
-        m.id, m.family_id, m.person_id,
-        m.from_place_raw, m.to_place_raw,
-        m.from_place_id, m.to_place_id,
-        fp.family_name,
-        p.role AS person_role,
-        p.name AS person_name,
-        CASE
-          WHEN fp_place.id IS NULL THEN 'from_place 缺失'
-          WHEN tp_place.id IS NULL THEN 'to_place 缺失'
-          ELSE 'OK'
-        END AS issue
-      FROM migrations m
-      JOIN family_profiles fp ON m.family_id = fp.id
-      JOIN persons p ON m.person_id = p.id
-      LEFT JOIN places fp_place ON m.from_place_id = fp_place.id
-      LEFT JOIN places tp_place ON m.to_place_id = tp_place.id
-      WHERE m.from_place_id IS NULL OR m.to_place_id IS NULL
-         OR fp_place.id IS NULL OR tp_place.id IS NULL
-      ORDER BY m.year
-    `);
-    issues.missing_coords = missingCoords.rows;
-
-    // 2. 检查孤立的迁徙记录
-    const orphanMigrations = await db.query(`
-      SELECT m.id, m.from_place_id, m.to_place_id, m.from_place_raw, m.to_place_raw,
-             '引用不存在的地点' AS issue
-      FROM migrations m
-      WHERE (m.from_place_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM places WHERE id = m.from_place_id))
-         OR (m.to_place_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM places WHERE id = m.to_place_id))
-    `);
-    issues.orphan_migrations = orphanMigrations.rows;
-
-    // 3. 检查孤立的地点
-    const orphanPlaces = await db.query(`
-      SELECT p.id, p.raw_name, p.normalized_name, '无迁徙引用' AS status
-      FROM places p
-      WHERE p.id NOT IN (SELECT DISTINCT from_place_id FROM migrations WHERE from_place_id IS NOT NULL)
-        AND p.id NOT IN (SELECT DISTINCT to_place_id FROM migrations WHERE to_place_id IS NOT NULL)
-    `);
-    issues.orphan_places = orphanPlaces.rows;
-
-    // 4. 检查不完整的人物
-    const orphanPersons = await db.query(`
-      SELECT p.id, p.family_id, p.role, p.name, p.birth_year, '无迁徙记录' AS status
-      FROM persons p
-      WHERE p.id NOT IN (SELECT DISTINCT person_id FROM migrations WHERE person_id IS NOT NULL)
-    `);
-    issues.orphan_persons = orphanPersons.rows;
-
-    // 5. 检查不完整的家族
-    const incompleteFamilies = await db.query(`
-      SELECT
-        fp.id, fp.family_name, fp.status,
-        COUNT(DISTINCT p.id) AS persons,
-        COUNT(DISTINCT m.id) AS migrations,
-        CASE
-          WHEN COUNT(DISTINCT p.id) = 0 THEN '无人物'
-          WHEN COUNT(DISTINCT m.id) = 0 THEN '无迁徙'
-          WHEN COUNT(DISTINCT p.id) < 2 THEN '人物少于 2 人'
-          ELSE 'OK'
-        END AS status
-      FROM family_profiles fp
-      LEFT JOIN persons p ON fp.id = p.family_id
-      LEFT JOIN migrations m ON fp.id = m.family_id
-      GROUP BY fp.id, fp.family_name, fp.status
-      HAVING COUNT(DISTINCT p.id) < 2 OR COUNT(DISTINCT m.id) = 0
-    `);
-    issues.incomplete_families = incompleteFamilies.rows;
-
-    const totalIssues =
-      issues.missing_coords.length +
-      issues.orphan_migrations.length +
-      issues.orphan_places.length +
-      issues.orphan_persons.length +
-      issues.incomplete_families.length;
-
-    const summary = {
-      total_migrations: await db.query('SELECT COUNT(*) FROM migrations').then(r => parseInt(r.rows[0].count)),
-      total_places: await db.query('SELECT COUNT(*) FROM places').then(r => parseInt(r.rows[0].count)),
-      total_persons: await db.query('SELECT COUNT(*) FROM persons').then(r => parseInt(r.rows[0].count)),
-      total_families: await db.query('SELECT COUNT(*) FROM family_profiles').then(r => parseInt(r.rows[0].count)),
-      total_issues: totalIssues,
-    };
-
-    log.ok(`[check-data] 完成 总记录=${JSON.stringify(summary)} 问题=${totalIssues}`);
-    res.json({ success: true, summary, issues });
-
-  } catch (err) {
-    log.error('[check-data] 异常:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// 路由：POST /amapapi/fix-data
-// 自动修复数据问题
-// ============================================================
-app.post('/amapapi/fix-data', async (req, res) => {
-  log.info('[fix-data] 开始自动修复数据');
-
-  try {
-    const result = {
-      created_places: [],
-      updated_migrations: [],
-      cleaned: [],
-      errors: [],
-    };
-
-    // 0. 清理脏数据：将空字符串转为 NULL
-    const cleanResult = await db.query(`
-      UPDATE migrations
-      SET from_place_id = NULL
-      WHERE from_place_id = ''
-    `);
-    if (cleanResult.rowCount > 0) {
-      result.cleaned.push({ field: 'from_place_id', count: cleanResult.rowCount });
-      log.db(`[fix-data] 清理 from_place_id 空字符串 ${cleanResult.rowCount} 条`);
-    }
-
-    const cleanResult2 = await db.query(`
-      UPDATE migrations
-      SET to_place_id = NULL
-      WHERE to_place_id = ''
-    `);
-    if (cleanResult2.rowCount > 0) {
-      result.cleaned.push({ field: 'to_place_id', count: cleanResult2.rowCount });
-      log.db(`[fix-data] 清理 to_place_id 空字符串 ${cleanResult2.rowCount} 条`);
-    }
-
-    // 1. 为缺少地点 ID 的迁徙记录创建地点（只处理 IS NULL）
-    const missingFromPlaces = await db.query(`
-      SELECT DISTINCT m.from_place_raw AS raw_name
-      FROM migrations m
-      WHERE m.from_place_id IS NULL
-        AND m.from_place_raw IS NOT NULL AND m.from_place_raw != ''
-    `);
-
-    for (const row of missingFromPlaces.rows) {
-      // 检查是否已存在同名地点
-      const existing = await db.query('SELECT id FROM places WHERE raw_name = $1', [row.raw_name]);
-
-      if (existing.rows.length > 0) {
-        // 已存在，直接更新迁徙记录
-        await db.query(
-          'UPDATE migrations SET from_place_id = $1 WHERE from_place_raw = $2 AND m.from_place_id IS NULL',
-          [existing.rows[0].id, row.raw_name]
-        );
-        result.updated_migrations.push({ action: 'linked_existing', place: row.raw_name, type: 'from_place' });
-      } else {
-        // 创建新地点
-        const newPlace = await db.query(
-          `INSERT INTO places (id, raw_name, normalized_name, province, city, longitude, latitude, country)
-           VALUES (uuid_generate_v4(), $1, $1, NULL, NULL, NULL, NULL, '中国')
-           RETURNING id, raw_name`,
-          [row.raw_name]
-        );
-        await db.query(
-          'UPDATE migrations SET from_place_id = $1 WHERE from_place_raw = $2 AND m.from_place_id IS NULL',
-          [newPlace.rows[0].id, row.raw_name]
-        );
-        result.created_places.push({ raw_name: row.raw_name, id: newPlace.rows[0].id, type: 'from_place' });
-      }
-    }
-
-    // 2. 处理 to_place
-    const missingToPlaces = await db.query(`
-      SELECT DISTINCT m.to_place_raw AS raw_name
-      FROM migrations m
-      WHERE m.to_place_id IS NULL
-        AND m.to_place_raw IS NOT NULL AND m.to_place_raw != ''
-    `);
-
-    for (const row of missingToPlaces.rows) {
-      const existing = await db.query('SELECT id FROM places WHERE raw_name = $1', [row.raw_name]);
-
-      if (existing.rows.length > 0) {
-        await db.query(
-          'UPDATE migrations SET to_place_id = $1 WHERE to_place_raw = $2 AND m.to_place_id IS NULL',
-          [existing.rows[0].id, row.raw_name]
-        );
-        result.updated_migrations.push({ action: 'linked_existing', place: row.raw_name, type: 'to_place' });
-      } else {
-        const newPlace = await db.query(
-          `INSERT INTO places (id, raw_name, normalized_name, province, city, longitude, latitude, country)
-           VALUES (uuid_generate_v4(), $1, $1, NULL, NULL, NULL, NULL, '中国')
-           RETURNING id, raw_name`,
-          [row.raw_name]
-        );
-        await db.query(
-          'UPDATE migrations SET to_place_id = $1 WHERE to_place_raw = $2 AND m.to_place_id IS NULL',
-          [newPlace.rows[0].id, row.raw_name]
-        );
-        result.created_places.push({ raw_name: row.raw_name, id: newPlace.rows[0].id, type: 'to_place' });
-      }
-    }
-
-    log.ok(`[fix-data] 完成 创建地点=${result.created_places.length} 更新迁徙=${result.updated_migrations.length}`);
-    res.json({ success: true, result });
-
-  } catch (err) {
-    log.error('[fix-data] 异常:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// ★ AGENT：工具定义
-// ============================================================
-const AGENT_TOOLS = [
-  {
-    name: 'save_person',
-    description: '当用户确认了某人的信息（出生地/出生年份/职业等）时立即调用保存。同一角色多次补充信息时重复调用，会自动合并更新，不会重复创建。',
-    input_schema: {
-      type: 'object',
-      properties: {
-        role:        { type: 'string',  enum: ['本人','父亲','母亲','爷爷','奶奶','外公','外婆','其他'], description: '人物角色' },
-        name:        { type: 'string',  description: '姓名，不知道时省略此字段' },
-        birth_year:  { type: 'integer', description: '出生年份，不知道时省略此字段' },
-        birth_place: { type: 'string',  description: '出生地，尽量精确到县市' },
-        occupation:  { type: 'string',  description: '职业，不知道时省略此字段' },
-        generation:  { type: 'integer', description: '代际：0=本人，1=父辈，2=祖辈' },
-      },
-      required: ['role', 'generation'],
-    },
-  },
-  {
-    name: 'save_migration',
-    description: '用户提到某次搬迁/移居/去某地工作或读书时立即调用。必须先保存对应人物（save_person）才能调用此工具。',
-    input_schema: {
-      type: 'object',
-      properties: {
-        person_role:  { type: 'string',  description: '迁徙者的角色，与 save_person 的 role 字段一致' },
-        from_place:   { type: 'string',  description: '出发地，不知道时省略' },
-        to_place:     { type: 'string',  description: '目的地（必填）' },
-        year:         { type: 'integer', description: '迁徙年份，不确定时省略' },
-        year_approx:  { type: 'boolean', description: '年份是否为估算值，默认 false' },
-        reason:       { type: 'string',  description: '迁徙原因的简短描述' },
-        reason_type:  { type: 'string',  enum: ['study','work','war','disaster','assignment','family','unknown'] },
-      },
-      required: ['person_role', 'to_place'],
-    },
-  },
-  {
-    name: 'geocode_and_verify',
-    description: '验证地名是否可被识别为有效地理坐标。遇到不常见或表述模糊的地名时调用，根据结果决定是否追问用户更精确的地名。',
-    input_schema: {
-      type: 'object',
-      properties: {
-        place_name: { type: 'string', description: '需要验证的地名' },
-      },
-      required: ['place_name'],
-    },
-  },
-  {
-    name: 'query_historical_context',
-    description: '根据年份查询对应的重要历史背景事件，用于理解迁徙原因，并在对话中自然地融入历史维度。用户提到具体年份+迁徙时调用。',
-    input_schema: {
-      type: 'object',
-      properties: {
-        year:   { type: 'integer', description: '要查询的年份' },
-        region: { type: 'string',  description: '地区，可选：省份名 或 national（默认）' },
-      },
-      required: ['year'],
-    },
-  },
-  {
-    name: 'mark_collection_complete',
-    description: '当已收集到3代及以上人物信息、且每代人都有至少一个迁徙节点时调用，标志信息采集完整，系统将自动触发地图生成流程。',
-    input_schema: {
-      type: 'object',
-      properties: {
-        summary: { type: 'string', description: '简短总结已收集的内容，如"收集了王姓家族3代，共5次迁徙"' },
-      },
-      required: ['summary'],
-    },
-  },
-];
-
-const AGENT_SYSTEM = `你是"寻根"平台的家族故事采集助手。你通过温暖的对话收集用户家族的迁徙历史，并在对话过程中悄悄调用工具保存信息。
-
-【工具调用时机——每当出现以下情况时立即调用，不要等到对话结束】
-- 用户确认了某人的出生地或出生年份 → save_person
-- 用户提到某次搬迁/去某地工作/读书 → save_migration（需先 save_person）
-- 遇到不常见或表述模糊的地名 → 先 geocode_and_verify，再决定是否追问
-- 用户提到具体年份 → query_historical_context，把背景自然融入回复
-- 已收集到3代+主要迁徙节点完整 → mark_collection_complete
-
-【对话策略】
-1. 每次只问一个问题，不要连续提问
-2. 收集顺序：本人 → 父辈 → 祖辈
-3. 核心信息：出生地、迁徙地点与年份、迁徙原因
-4. 语气温暖自然，像老朋友聊天，不像填表格
-5. 历史背景查到后，自然地融入回复（如"那正是文化大革命期间，很多人都被下放到农村……"）
-
-【重要约束】工具调用在后台静默执行，绝不向用户说"我正在保存"之类的话，直接继续对话。`;
-
-// ============================================================
-// ★ AGENT：工具执行器
-// ============================================================
-async function executeAgentTool(toolName, toolInput, ctx) {
-  // ctx = { familyId, personMap: {role→dbId}, isComplete }
-
-  switch (toolName) {
-
-    case 'save_person': {
-      const { role, name, birth_year, birth_place, occupation, generation } = toolInput;
-
-      // 已存在该角色 → 更新
-      if (ctx.personMap[role]) {
-        const sets = [], vals = [];
-        let i = 1;
-        if (name)        { sets.push(`name=$${i++}`);        vals.push(name); }
-        if (birth_year)  { sets.push(`birth_year=$${i++}`);  vals.push(birth_year); }
-        if (birth_place) { sets.push(`birth_place=$${i++}`); vals.push(birth_place); }
-        if (occupation)  { sets.push(`occupation=$${i++}`);  vals.push(occupation); }
-        if (sets.length) {
-          vals.push(ctx.personMap[role]);
-          await db.query(`UPDATE persons SET ${sets.join(',')} WHERE id=$${i}`, vals);
-          log.db(`[agent] 更新人物 ${role}  id=${ctx.personMap[role]}`);
-        }
-        return { ok: true, action: 'updated', person_id: ctx.personMap[role], role };
-      }
-
-      // 首次保存人物 → 可能需先建 family_profile
-      if (!ctx.familyId) {
-        const fp = await db.query(
-          `INSERT INTO family_profiles (family_name, status) VALUES ($1, 'collecting') RETURNING id`,
-          [name ? `${name}家族` : `${role}的家族`]
-        );
-        ctx.familyId = fp.rows[0].id;
-        log.db(`[agent] 新建 family_profile  id=${ctx.familyId}`);
-      }
-
-      const iid = `p_${role}_${Date.now()}`;
-      const r = await db.query(
-        `INSERT INTO persons (family_id, internal_id, role, name, birth_year, birth_place, occupation, generation)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-        [ctx.familyId, iid, role, name || role,
-         birth_year || null, birth_place || null, occupation || null, generation]
-      );
-      ctx.personMap[role] = r.rows[0].id;
-      log.db(`[agent] 新建人物 ${role}  db.id=${r.rows[0].id}`);
-      return { ok: true, action: 'created', person_id: r.rows[0].id, family_id: ctx.familyId, role };
-    }
-
-    case 'save_migration': {
-      const { person_role, from_place, to_place, year, year_approx, reason, reason_type } = toolInput;
-
-      const personId = ctx.personMap[person_role];
-      if (!personId) {
-        return { ok: false, error: `人物 "${person_role}" 尚未保存，请先调用 save_person` };
-      }
-      if (!ctx.familyId) {
-        return { ok: false, error: 'family_id 尚未创建，请先保存至少一个人物' };
-      }
-
-      // 自动递增 sequence_order
-      const seqR = await db.query(
-        `SELECT COALESCE(MAX(sequence_order), 0) + 1 AS n FROM migrations WHERE family_id = $1`,
-        [ctx.familyId]
-      );
-      const seq = seqR.rows[0].n;
-
-      // 地理编码（后台静默执行）
-      if (from_place) await geocodePlace(from_place).catch(() => null);
-      if (to_place)   await geocodePlace(to_place).catch(() => null);
-
-      const fromRow = from_place
-        ? await db.query('SELECT id FROM places WHERE raw_name=$1', [from_place])
-        : { rows: [] };
-      const toRow = to_place
-        ? await db.query('SELECT id FROM places WHERE raw_name=$1', [to_place])
-        : { rows: [] };
-
-      await db.query(
-        `INSERT INTO migrations
-           (family_id, person_id, from_place_id, to_place_id,
-            from_place_raw, to_place_raw, year, year_approx,
-            reason, reason_type, emotion_weight, sequence_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'medium',$11)`,
-        [
-          ctx.familyId, personId,
-          fromRow.rows[0]?.id || null, toRow.rows[0]?.id || null,
-          from_place || null, to_place,
-          year || null, year_approx || false,
-          reason || null, reason_type || 'unknown',
-          seq,
-        ]
-      );
-      log.db(`[agent] 迁徙入库: ${from_place || '?'} → ${to_place}  year=${year || '?'}  seq=${seq}`);
-      return { ok: true, from: from_place, to: to_place, year, seq };
-    }
-
-    case 'geocode_and_verify': {
-      const geo = await geocodePlace(toolInput.place_name).catch(() => null);
-      if (geo) {
-        return {
-          ok: true, valid: true,
-          place: toolInput.place_name,
-          lng: geo.longitude, lat: geo.latitude,
-          normalized: geo.normalized_name,
-        };
-      }
-      return {
-        ok: true, valid: false,
-        place: toolInput.place_name,
-        suggestion: '无法识别此地名，建议追问用户更精确的县市名称',
-      };
-    }
-
-    case 'query_historical_context': {
-      const events = await matchHistoricalEvents(toolInput.year, toolInput.region || 'national');
-      return {
-        ok: true,
-        year: toolInput.year,
-        events: events.map(e => ({ name: e.name, desc: e.description })),
-      };
-    }
-
-    case 'mark_collection_complete': {
-      if (ctx.familyId) {
-        await db.query(
-          `UPDATE family_profiles SET status='ready', ai_confidence=0.90 WHERE id=$1`,
-          [ctx.familyId]
-        );
-        log.ok(`[agent] 收集完成  familyId=${ctx.familyId}  summary="${toolInput.summary}"`);
-      }
-      ctx.isComplete = true;
-      return { ok: true, family_id: ctx.familyId, summary: toolInput.summary };
-    }
-
-    default:
-      return { ok: false, error: `未知工具: ${toolName}` };
-  }
-}
-
-// ============================================================
-// ★ 路由：POST /amapapi/agent   Agentic 对话（取代 /chat + /extract）
-// ============================================================
-app.post('/amapapi/agent', async (req, res) => {
-  const { messages, familyId } = req.body;
-  const startTime = Date.now();
-
-  log.ai(`[agent] 开始  轮次=${messages?.length || 0}  familyId=${familyId || '无'}  model=${QWEN_MODEL}`);
-
-  // SSE 响应头
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  // 运行时上下文（跨工具调用共享状态）
-  const ctx = {
-    familyId:   familyId || null,
-    personMap:  {},        // role → db_id
-    isComplete: false,
-  };
-
-  // 续谈场景：预载已有人物 ID 映射
-  if (familyId) {
-    try {
-      const existing = await db.query(
-        'SELECT id, role FROM persons WHERE family_id=$1', [familyId]
-      );
-      existing.rows.forEach(p => { ctx.personMap[p.role] = p.id; });
-      log.db(`[agent] 预载人物映射: ${JSON.stringify(ctx.personMap)}`);
-    } catch (e) {
-      log.warn('[agent] 预载人物失败:', e.message);
-    }
-  }
-
-  // 前端传来的是纯文本消息历史；工具调用上下文由 Agent loop 在服务端维护
-  let loopMessages = messages.map(m => ({ role: m.role, content: String(m.content) }));
-
-  const MAX_ITER = 10;
-  let iter = 0;
-
-  try {
-    while (iter < MAX_ITER) {
-      iter++;
-      log.ai(`[agent] ── 第${iter}轮 LLM 调用 ──`);
-
-      const resp = await anthropic.messages.create({
-        model:      QWEN_MODEL,
-        max_tokens: 800,
-        system:     AGENT_SYSTEM,
-        tools:      AGENT_TOOLS,
-        messages:   loopMessages,
-      });
-
-      log.ai(`[agent] 第${iter}轮  stop=${resp.stop_reason}  types=[${resp.content.map(b => b.type).join(',')}]  tokens=${resp.usage?.output_tokens || '?'}`);
-
-      // ── 分支一：模型请求调用工具 ──────────────────────────
-      if (resp.stop_reason === 'tool_use') {
-        const toolUses = resp.content.filter(b => b.type === 'tool_use');
-        const toolResults = [];
-
-        for (const tu of toolUses) {
-          log.ai(`[agent] 执行工具: ${tu.name}  input=${JSON.stringify(tu.input)}`);
-
-          // 推送轻量事件给前端（前端显示保存指示器）
-          res.write(`data: ${JSON.stringify({ type: 'tool_call', tool: tu.name })}\n\n`);
-
-          const result = await executeAgentTool(tu.name, tu.input, ctx);
-          log.ai(`[agent] 工具结果: ${JSON.stringify(result)}`);
-
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: tu.id,
-            content: JSON.stringify(result),
-          });
-        }
-
-        // 过滤 thinking 块后追加到消息历史（避免兼容性问题）
-        const assistantContent = resp.content.filter(b => b.type !== 'thinking');
-        loopMessages = [
-          ...loopMessages,
-          { role: 'assistant', content: assistantContent },
-          { role: 'user',      content: toolResults },
-        ];
-        continue;  // 继续 loop
-      }
-
-      // ── 分支二：end_turn，提取文本并推送给前端 ────────────
-      const textBlock = resp.content.find(b => b.type === 'text');
-      if (textBlock?.text) {
-        const text = textBlock.text;
-        // 分块推送，模拟流式打字效果（每 15 字一帧）
-        const CHUNK = 15;
-        for (let i = 0; i < text.length; i += CHUNK) {
-          res.write(`data: ${JSON.stringify({ type: 'text', content: text.slice(i, i + CHUNK) })}\n\n`);
-        }
-      }
-
-      // 持久化会话（便于页面刷新后续谈）
-      if (ctx.familyId) {
-        const allMsgs = messages.concat(
-          textBlock?.text ? [{ role: 'assistant', content: textBlock.text }] : []
-        );
-        db.query(
-          `INSERT INTO chat_sessions (family_id, messages, is_complete, updated_at)
-           VALUES ($1, $2, $3, NOW())
-           ON CONFLICT (family_id)
-           DO UPDATE SET messages=$2, is_complete=$3, updated_at=NOW()`,
-          [ctx.familyId, JSON.stringify(allMsgs), ctx.isComplete]
-        ).catch(e => log.warn('[agent] 会话持久化失败:', e.message));
-      }
-
-      const elapsed = Date.now() - startTime;
-      log.ok(`[agent] 完成  耗时=${elapsed}ms  iters=${iter}  familyId=${ctx.familyId}  isComplete=${ctx.isComplete}`);
-
-      res.write(`data: ${JSON.stringify({
-        type:       'done',
-        isComplete: ctx.isComplete,
-        familyId:   ctx.familyId,
-      })}\n\n`);
-      res.end();
-      return;
-    }
-
-    // 超出最大迭代次数（理论上不应触发）
-    log.warn(`[agent] 超出最大迭代次数 ${MAX_ITER}`);
-    res.write(`data: ${JSON.stringify({
-      type:       'done',
-      isComplete: false,
-      familyId:   ctx.familyId,
-      warning:    'max_iterations_reached',
-    })}\n\n`);
-    res.end();
-
-  } catch (err) {
-    log.error('[agent] 异常:', err.message);
-    log.error('[agent] stack:', err.stack);
-    if (!res.writableEnded) {
-      res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
-      res.end();
-    }
-  }
-});
-
-// ============================================================
 // 全局错误处理
 // ============================================================
 app.use((err, req, res, _next) => {
@@ -1489,13 +915,13 @@ const PORT = process.env.PORT || 3005;
 app.listen(PORT, async () => {
   console.log('');
   console.log(C.bold + '═══════════════════════════════════════════' + C.reset);
-  console.log(C.bold + '  家族迁徙平台 API  [Agent 版]' + C.reset);
+  console.log(C.bold + '  家族迁徙平台 API  [调试增强版]' + C.reset);
   console.log(C.bold + '═══════════════════════════════════════════' + C.reset);
   log.ok(`服务地址: http://localhost:${PORT}`);
   log.ok(`健康检查: http://localhost:${PORT}/amapapi/health`);
-  log.ok(`Agent 端点: POST http://localhost:${PORT}/amapapi/agent`);
   console.log('');
 
+  // 启动时验证所有依赖
   checkAI();
   checkAmap();
   await checkDB();

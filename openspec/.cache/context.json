@@ -1,0 +1,88 @@
+{
+  "stack": {
+    "languages": [
+      {
+        "name": "HTML",
+        "fileCount": 11,
+        "lineCount": 7107,
+        "percentage": 64
+      },
+      {
+        "name": "JavaScript",
+        "fileCount": 4,
+        "lineCount": 2142,
+        "percentage": 19
+      },
+      {
+        "name": "JSON",
+        "fileCount": 2,
+        "lineCount": 1074,
+        "percentage": 10
+      },
+      {
+        "name": "Markdown",
+        "fileCount": 12,
+        "lineCount": 712,
+        "percentage": 6
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "unknown",
+    "buildTools": []
+  },
+  "structure": {
+    "rootFiles": [
+      "DEPLOY.md",
+      "MULTI-STORIES-README.md",
+      "README.md",
+      "nginx.conf"
+    ],
+    "mainDirectories": [
+      {
+        "name": "frontend",
+        "purpose": "项目目录",
+        "fileCount": 16,
+        "path": "frontend"
+      },
+      {
+        "name": "backend",
+        "purpose": "项目目录",
+        "fileCount": 9,
+        "path": "backend"
+      },
+      {
+        "name": "memory",
+        "purpose": "项目目录",
+        "fileCount": 9,
+        "path": "memory"
+      },
+      {
+        "name": "sql",
+        "purpose": "项目目录",
+        "fileCount": 4,
+        "path": "sql"
+      }
+    ],
+    "entryPoints": []
+  },
+  "patterns": {
+    "architecture": "unknown",
+    "codeStyle": [],
+    "conventions": [
+      "OpenSpec"
+    ]
+  },
+  "stats": {
+    "totalFiles": 44,
+    "totalLines": 11035,
+    "byLanguage": {
+      "HTML": 7107,
+      "JavaScript": 2142,
+      "JSON": 1074,
+      "Markdown": 712
+    }
+  },
+  "analyzedAt": "2026-04-08T05:50:37.674Z",
+  "projectRoot": "/Users/jianyu/Documents/feisu/xungen/wangzu-map",
+  "projectName": "wangzu-map"
+}

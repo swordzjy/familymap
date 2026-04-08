@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>数据检查工具</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #c9d1d9; --text-muted: #8b949e;
+  --green: #3fb950; --yellow: #d29922; --red: #f85149; --blue: #58a6ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  padding: 20px; line-height: 1.6;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; margin-bottom: 20px; color: var(--text); }
+h2 { font-size: 16px; margin: 20px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+.btn {
+  display: inline-block; padding: 10px 20px;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+  cursor: pointer; font-size: 14px; margin-right: 10px;
+}
+.btn:hover { background: #21262d; }
+.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn-primary:hover { background: #3a8ee6; }
+.btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 16px;
+}
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { text-align: center; }
+.stat-value { font-size: 24px; font-weight: 600; color: var(--text); }
+.stat-label { font-size: 12px; color: var(--text-muted); }
+
+.issue-count { font-size: 13px; color: var(--text-muted); }
+.issue-count .count { font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+.count-0 { background: rgba(63,185,80,0.2); color: var(--green); }
+.count-high { background: rgba(248,81,73,0.2); color: var(--red); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--text-muted); font-weight: 500; }
+tr:hover { background: #21262d; }
+
+.badge {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 12px; font-size: 11px; font-weight: 500;
+}
+.badge-warning { background: rgba(210,153,34,0.2); color: var(--yellow); }
+.badge-danger { background: rgba(248,81,73,0.2); color: var(--red); }
+.badge-info { background: rgba(88,166,255,0.2); color: var(--blue); }
+
+.log {
+  background: #0d1117; border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px; font-family: 'DM Mono', monospace;
+  font-size: 12px; max-height: 300px; overflow-y: auto;
+}
+.log-line { margin-bottom: 4px; }
+.log-ok { color: var(--green); }
+.log-warn { color: var(--yellow); }
+.log-err { color: var(--red); }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔍 数据健康检查工具</h1>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <button class="btn btn-primary" onclick="checkData()">运行检查</button>
+        <button class="btn" onclick="fixData()">自动修复</button>
+        <button class="btn" onclick="location.reload()">刷新</button>
+      </div>
+      <div id="status" class="issue-count"></div>
+    </div>
+  </div>
+
+  <div id="summary-card" class="card hidden">
+    <h2>数据概览</h2>
+    <div class="stat-grid" id="summary-stats"></div>
+  </div>
+
+  <div id="issues-card" class="card hidden">
+    <h2>发现的问题</h2>
+    <div id="issues-list"></div>
+  </div>
+
+  <div id="missing-coords" class="card hidden">
+    <h2>缺少坐标的迁徙记录</h2>
+    <table id="missing-coords-table">
+      <thead>
+        <tr>
+          <th>家族</th>
+          <th>人物</th>
+          <th>起点</th>
+          <th>终点</th>
+          <th>年份</th>
+          <th>问题</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="orphan-places" class="card hidden">
+    <h2>孤立的地点（无迁徙引用）</h2>
+    <table id="orphan-places-table">
+      <thead>
+        <tr><th>地名</th><th>标准化名称</th><th>省份</th><th>城市</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="orphan-migrations" class="card hidden">
+    <h2>孤立的迁徙记录（引用不存在的地点 ID）</h2>
+    <table id="orphan-migrations-table">
+      <thead>
+        <tr><th>起点</th><th>终点</th><th>问题</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="orphan-persons" class="card hidden">
+    <h2>孤立的人物（无迁徙记录）</h2>
+    <table id="orphan-persons-table">
+      <thead>
+        <tr><th>家族</th><th>角色</th><th>姓名</th><th>出生年</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="incomplete-families" class="card hidden">
+    <h2>不完整的家族</h2>
+    <table id="incomplete-families-table">
+      <thead>
+        <tr><th>家族名称</th><th>状态</th><th>人物数</th><th>迁徙数</th><th>问题</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>操作日志</h2>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/amapapi';
+
+function log(msg, type = 'info') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  const time = new Date().toLocaleTimeString();
+  const icon = type === 'ok' ? '✓' : type === 'err' ? '✗' : '·';
+  const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : '';
+  line.innerHTML = `<span class="${cls}">[${time}] ${icon} ${msg}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function checkData() {
+  log('开始检查数据...');
+  document.getElementById('status').textContent = '检查中...';
+
+  try {
+    const res = await fetch(`${API_BASE}/check-data`);
+    const data = await res.json();
+
+    if (!data.success) {
+      log(data.error, 'err');
+      return;
+    }
+
+    const { summary, issues } = data;
+
+    // 显示概览
+    document.getElementById('summary-card').classList.remove('hidden');
+    document.getElementById('summary-stats').innerHTML = `
+      <div class="stat"><div class="stat-value">${summary.total_families}</div><div class="stat-label">家族</div></div>
+      <div class="stat"><div class="stat-value">${summary.total_persons}</div><div class="stat-label">人物</div></div>
+      <div class="stat"><div class="stat-value">${summary.total_migrations}</div><div class="stat-label">迁徙</div></div>
+      <div class="stat"><div class="stat-value">${summary.total_places}</div><div class="stat-label">地点</div></div>
+    `;
+
+    // 显示问题计数
+    const issueCount = summary.total_issues;
+    const statusEl = document.getElementById('status');
+    statusEl.innerHTML = `共发现 <span class="count ${issueCount > 0 ? 'count-high' : 'count-0'}">${issueCount}</span> 个问题`;
+
+    // 显示各类问题
+    document.getElementById('issues-card').classList.remove('hidden');
+    document.getElementById('issues-list').innerHTML = `
+      <div class="issue-count">缺少坐标：<span class="badge badge-danger">${issues.missing_coords.length}</span></div>
+      <div class="issue-count">孤立迁徙：<span class="badge badge-warning">${issues.orphan_migrations.length}</span></div>
+      <div class="issue-count">孤立地点：<span class="badge badge-info">${issues.orphan_places.length}</span></div>
+      <div class="issue-count">孤立人物：<span class="badge badge-info">${issues.orphan_persons.length}</span></div>
+      <div class="issue-count">不完整家族：<span class="badge badge-warning">${issues.incomplete_families.length}</span></div>
+    `;
+
+    // 填充表格
+    renderTable('missing-coords-table', 'missing-coords', issues.missing_coords, row => `
+      <td>${row.family_name || '-'}</td>
+      <td>${row.person_role || ''}${row.person_name || ''}</td>
+      <td>${row.from_place_raw || '-'}</td>
+      <td>${row.to_place_raw || '-'}</td>
+      <td>${row.year || '?'}</td>
+      <td><span class="badge badge-danger">${row.issue}</span></td>
+    `);
+
+    renderTable('orphan-migrations-table', 'orphan-migrations', issues.orphan_migrations, row => `
+      <td>${row.from_place_raw || '-'}</td>
+      <td>${row.to_place_raw || '-'}</td>
+      <td><span class="badge badge-warning">${row.issue}</span></td>
+    `);
+
+    renderTable('orphan-places-table', 'orphan-places', issues.orphan_places, row => `
+      <td>${row.raw_name}</td>
+      <td>${row.normalized_name || '-'}</td>
+      <td>${row.province || '-'}</td>
+      <td>${row.city || '-'}</td>
+    `);
+
+    renderTable('orphan-persons-table', 'orphan-persons', issues.orphan_persons, row => `
+      <td>${row.family_id ? '家族 ID: ' + row.family_id.slice(0,8) + '...' : '-'}</td>
+      <td>${row.role || '-'}</td>
+      <td>${row.name || '-'}</td>
+      <td>${row.birth_year || '?'}</td>
+    `);
+
+    renderTable('incomplete-families-table', 'incomplete-families', issues.incomplete_families, row => `
+      <td>${row.family_name || '-'}</td>
+      <td>${row.status}</td>
+      <td>${row.persons}</td>
+      <td>${row.migrations}</td>
+      <td><span class="badge badge-warning">${row.status}</span></td>
+    `);
+
+    if (issueCount === 0) {
+      log('数据健康，没有发现问题', 'ok');
+    } else {
+      log(`发现 ${issueCount} 个问题`, 'warn');
+    }
+
+  } catch (err) {
+    log(err.message, 'err');
+  }
+}
+
+async function fixData() {
+  log('开始自动修复...');
+
+  try {
+    const res = await fetch(`${API_BASE}/fix-data`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!data.success) {
+      log(data.error, 'err');
+      return;
+    }
+
+    const { result } = data;
+    log(`创建地点 ${result.created_places.length} 个`, 'ok');
+    log(`更新迁徙 ${result.updated_migrations.length} 条`, 'ok');
+
+    if (result.created_places.length > 0 || result.updated_migrations.length > 0) {
+      log('修复完成，请重新运行检查验证', 'ok');
+    } else {
+      log('没有需要修复的数据', 'ok');
+    }
+
+  } catch (err) {
+    log(err.message, 'err');
+  }
+}
+
+function renderTable(tableId, cardId, data, rowFn) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const card = document.getElementById(cardId);
+
+  if (!card) {
+    console.warn('Card not found:', cardId);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    card.classList.add('hidden');
+    return;
+  }
+
+  card.classList.remove('hidden');
+  tbody.innerHTML = data.map(rowFn).join('');
+}
+</script>
+</body>
+</html>

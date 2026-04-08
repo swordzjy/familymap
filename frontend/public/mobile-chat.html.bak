@@ -236,24 +236,6 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   background:rgba(200,169,110,0.25);
   transform:scale(0.98);
 }
-
-/* ★ Agent 保存指示器 */
-#save-indicator{
-  position:fixed;
-  bottom:calc(90px + env(safe-area-inset-bottom));
-  left:50%;transform:translateX(-50%);
-  background:rgba(200,169,110,0.12);
-  border:1px solid rgba(200,169,110,0.25);
-  color:var(--gold);
-  font-size:12px;font-family:var(--mono);
-  padding:4px 14px;border-radius:20px;
-  backdrop-filter:blur(8px);
-  z-index:200;
-  opacity:0;
-  transition:opacity 0.25s;
-  pointer-events:none;
-  white-space:nowrap;
-}
 </style>
 </head>
 <body>
@@ -297,9 +279,8 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
   <!-- 快捷操作栏 -->
   <div class="quick-actions" id="quick-actions">
-    <!-- ★ 改动：去掉"我说完了"按钮，Agent 自动检测完成 -->
-    <!-- 保留手动跳转按钮，仅在 Agent 标记完成或用户坚持要跳转时显示 -->
-    <button class="quick-action-btn primary" id="organize-btn" onclick="goToStoryTimeline()" style="display:none;">查看家族地图 →</button>
+    <button class="quick-action-btn" id="finish-btn" onclick="userFinish()">我说完了</button>
+    <button class="quick-action-btn primary" id="organize-btn" onclick="goToStoryTimeline()" style="display:none;">整理家族故事 →</button>
   </div>
 
   <!-- 输入区域 -->
@@ -315,22 +296,18 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   </div>
 </div>
 
-<!-- ★ Agent 保存指示器（CSS 控制显隐） -->
-<div id="save-indicator"></div>
-
 <script>
 const API_BASE = '/amapapi';
 const STORAGE_KEY = 'family_migration_chat_state';
 
-// ── 状态管理 ──────────────────────────────────────────────
-
+// 从 localStorage 加载状态
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      state.familyId    = parsed.familyId    || null;
-      state.messages    = parsed.messages    || [];
+      state.familyId = parsed.familyId || null;
+      state.messages = parsed.messages || [];
       state.userFinished = parsed.userFinished || false;
       return parsed;
     }
@@ -340,11 +317,12 @@ function loadState() {
   return null;
 }
 
+// 保存状态到 localStorage
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      familyId:     state.familyId,
-      messages:     state.messages,
+      familyId: state.familyId,
+      messages: state.messages,
       userFinished: state.userFinished,
     }));
   } catch (e) {
@@ -352,66 +330,110 @@ function saveState() {
   }
 }
 
+// 清除状态（用户需要时）
 function clearState() {
-  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {}
 }
 
 const state = {
-  messages:    [],
-  familyId:    null,
-  userFinished: false,
-  isWaiting:   false,
+  messages: [],
+  familyId: null,
+  userFinished: false,  // 用户是否已点击"我说完了"
+  mapData: null,
+  isWaiting: false,
 };
 
-// ── 页面加载：恢复历史状态 ────────────────────────────────
-
+// 页面加载时恢复状态和聊天记录
 const savedState = loadState();
 if (savedState && savedState.messages.length > 0) {
+  // 清空初始欢迎消息
   document.getElementById('messages').innerHTML = '';
+  // 恢复历史消息
   savedState.messages.forEach(msg => {
     addMessage(msg.content, msg.role === 'assistant' ? 'ai' : 'user');
   });
+  // 隐藏引导卡片（已有历史对话）
   document.getElementById('guidance-cards').style.display = 'none';
-
-  // ★ 改动：只要有 familyId 就直接显示查看地图按钮
-  if (savedState.familyId) {
-    showMapButton();
+  // 如果用户已结束对话，隐藏"我说完了"按钮，显示操作按钮
+  if (savedState.userFinished) {
+    const finishBtn = document.getElementById('finish-btn');
+    if (finishBtn) finishBtn.style.display = 'none';
+    const organizeBtn = document.getElementById('organize-btn');
+    if (organizeBtn) {
+      organizeBtn.style.display = 'block';
+      // 已有数据时，按钮文字改为"查看家族地图"
+      if (savedState.familyId) {
+        organizeBtn.textContent = '查看家族地图 →';
+      }
+    }
   }
 }
 
-// ── 输入框自适应高度 ──────────────────────────────────────
-
+// 自动调整输入框高度
 const inputEl = document.getElementById('chat-input');
 inputEl.addEventListener('input', function() {
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight, 100) + 'px';
 });
 
-// ── 发送消息 ──────────────────────────────────────────────
-
+// 发送消息
 function sendMessage() {
   const text = inputEl.value.trim();
-  if (!text || state.isWaiting) return;
+  if (!text) return;
 
+  // 添加用户消息到 UI
   addMessage(text, 'user');
+  // 添加到状态
   state.messages.push({ role: 'user', content: text });
   saveState();
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
+
+  // 隐藏引导卡片
   document.getElementById('guidance-cards').style.display = 'none';
 
-  callAgentAPI();
+  // 调用 API
+  callAPI(text);
 }
 
+// 使用引导式问题
 function useGuidance(card) {
   const text = card.dataset.text;
   inputEl.value = text;
   sendMessage();
 }
 
-// ── 消息 UI 操作 ──────────────────────────────────────────
+// 用户主动结束对话
+function userFinish() {
+  // 更新状态
+  state.userFinished = true;
+  saveState();
 
+  // 隐藏"我说完了"按钮
+  const finishBtn = document.getElementById('finish-btn');
+  if (finishBtn) {
+    finishBtn.style.display = 'none';
+  }
+
+  // 显示"整理家族故事"按钮
+  const organizeBtn = document.getElementById('organize-btn');
+  if (organizeBtn) {
+    organizeBtn.style.display = 'block';
+    // 已有数据时，按钮文字改为"查看家族地图"
+    if (state.familyId) {
+      organizeBtn.textContent = '查看家族地图 →';
+    }
+  }
+
+  // 添加系统消息
+  const hasData = state.familyId ? '已有家族数据，点击下方按钮直接查看。' : '好的，请点击下方"整理家族故事"按钮生成地图';
+  addMessage(`<em style="color:var(--mist2);font-size:13px;">${hasData}</em>`, 'ai');
+}
+
+// 添加消息到聊天
 function addMessage(text, type) {
   const messagesEl = document.getElementById('messages');
   const msgDiv = document.createElement('div');
@@ -422,6 +444,7 @@ function addMessage(text, type) {
   return msgDiv;
 }
 
+// 显示 AI 输入中
 function showTyping() {
   const messagesEl = document.getElementById('messages');
   const typingDiv = document.createElement('div');
@@ -440,226 +463,94 @@ function showTyping() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+// 隐藏 AI 输入中
 function hideTyping() {
-  const el = document.getElementById('typing-indicator');
-  if (el) el.remove();
+  const typingEl = document.getElementById('typing-indicator');
+  if (typingEl) typingEl.remove();
 }
 
-// ── ★ Agent 保存指示器 ────────────────────────────────────
-
-const TOOL_LABELS = {
-  save_person:              '📝 记录人物信息',
-  save_migration:           '📍 记录迁徙路径',
-  geocode_and_verify:       '🗺 验证地名坐标',
-  query_historical_context: '📚 查阅历史背景',
-  mark_collection_complete: '✅ 信息采集完整',
-};
-
-let _indicatorTimer = null;
-
-function showSaveIndicator(toolName) {
-  const bar = document.getElementById('save-indicator');
-  bar.textContent = TOOL_LABELS[toolName] || '⚙️ 处理中';
-  bar.style.opacity = '1';
-  clearTimeout(_indicatorTimer);
-  _indicatorTimer = setTimeout(() => { bar.style.opacity = '0'; }, 1800);
-}
-
-// ── ★ 显示查看地图按钮 ────────────────────────────────────
-
-function showMapButton() {
-  const btn = document.getElementById('organize-btn');
-  if (btn) {
-    btn.textContent = '查看家族地图 →';
-    btn.style.display = 'block';
-  }
-}
-
-// ── ★ 核心：调用 Agent API（SSE）────────────────────────────
-
-async function callAgentAPI() {
-  state.isWaiting = true;
+// 调用后端 API（SSE 流式响应）
+async function callAPI(text) {
   showTyping();
 
   try {
-    // 只发纯文本消息历史，工具调用上下文由服务端维护
+    // 构建 messages 数组（包含历史消息）
     const messagesPayload = state.messages.map(m => ({
-      role:    m.role,
+      role: m.role,
       content: m.content,
     }));
+    // 添加当前用户消息
+    messagesPayload.push({ role: 'user', content: text });
 
-    const response = await fetch(`${API_BASE}/agent`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
+    const response = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
         messages: messagesPayload,
         familyId: state.familyId,
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const reader  = response.body.getReader();
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let aiContent = '';
-    let aiDiv     = null;
-    let buffer    = '';
+    let aiDiv = null;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();  // 保留不完整的最后一行
-
+      const lines = decoder.decode(value).split('\n');
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
-        const raw = line.slice(5).trim();
-        if (!raw) continue;
+        try {
+          const data = JSON.parse(line.slice(5));
 
-        let data;
-        try { data = JSON.parse(raw); }
-        catch (e) { console.warn('SSE JSON 解析失败:', raw); continue; }
-
-        // ── 文本流 ──
-        if (data.type === 'text') {
-          aiContent += data.content;
-          hideTyping();
-          if (!aiDiv) {
-            aiDiv = addMessage(aiContent.replace(/\n/g, '<br>'), 'ai');
-          } else {
-            aiDiv.querySelector('.bubble').innerHTML = aiContent.replace(/\n/g, '<br>');
-          }
-          document.getElementById('messages').scrollTop = 9999;
-        }
-
-        // ── ★ 工具调用事件（后台保存提示）──
-        if (data.type === 'tool_call') {
-          showSaveIndicator(data.tool);
-        }
-
-        // ── 完成 ──
-        if (data.type === 'done') {
-          // ★ 更新 familyId（Agent 首轮保存人物时会生成）
-          if (data.familyId && !state.familyId) {
-            state.familyId = data.familyId;
-            console.log('[agent] familyId 已更新:', state.familyId);
+          if (data.type === 'text') {
+            aiContent += data.content;
+            hideTyping();
+            // 过滤掉 [INFO_COMPLETE] 标记
+            const displayContent = aiContent.replace(/\[INFO_COMPLETE\]/g, '');
+            if (!aiDiv) {
+              // 第一次收到内容，创建消息
+              aiDiv = addMessage(displayContent.replace(/\n/g, '<br>'), 'ai');
+            } else {
+              // 更新已有消息
+              aiDiv.querySelector('.bubble').innerHTML = displayContent.replace(/\n/g, '<br>');
+            }
+            // 滚动到底部
+            const messagesEl = document.getElementById('messages');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
           }
 
-          // 将 AI 回复写入状态
-          if (aiContent) {
-            state.messages.push({ role: 'assistant', content: aiContent });
+          if (data.type === 'done') {
+            // 将 AI 回复添加到状态（过滤掉 [INFO_COMPLETE] 标记）
+            const cleanContent = aiContent.replace(/\[INFO_COMPLETE\]/g, '');
+            state.messages.push({ role: 'assistant', content: cleanContent });
+            saveState();
           }
-          saveState();
-
-          // ★ 信息采集完整 → 自动显示地图按钮
-          if (data.isComplete) {
-            showMapButton();
-            // 可选：延迟 1.5s 后自动跳转（体验更流畅）
-            // setTimeout(() => goToStoryTimeline(), 1500);
-          }
-        }
-
-        // ── 错误 ──
-        if (data.type === 'error') {
-          hideTyping();
-          addMessage('连接出现问题，请重试。', 'ai');
-          console.error('[agent] 服务端错误:', data.message);
+        } catch (e) {
+          console.warn('SSE 解析失败:', e);
         }
       }
     }
 
   } catch (e) {
-    console.error('[agent] 调用失败:', e);
+    console.error('API 调用失败:', e);
     hideTyping();
     addMessage('抱歉，连接失败了。请检查网络后重试。', 'ai');
-  } finally {
-    state.isWaiting = false;
   }
 }
 
-// ── 回车发送 ──────────────────────────────────────────────
-
-inputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
-
-// ── 重置聊天 ──────────────────────────────────────────────
-
-function resetChat() {
-  if (!confirm('确定要清除所有聊天记录并重新开始吗？')) return;
-  clearState();
-  location.reload();
-}
-
-// ── ★ 跳转地图（简化：Agent 已实时写库）────────────────────
-
-function goToStoryTimeline() {
-  if (!state.familyId) {
-    // 没有 familyId 说明 Agent 还没保存过任何人物
-    alert('家族信息还在收集中，请继续对话，告诉我你的家人在哪里生活、去过哪些地方。');
-    return;
-  }
-  // Agent 已在对话中实时写入数据库，直接加载已有数据
-  loadExistingData(state.familyId);
-}
-
-// ── 加载已有数据并跳转 ────────────────────────────────────
-
-async function loadExistingData(familyId) {
-  console.log('[mobile-chat] 加载已有数据 familyId:', familyId);
-
-  // 先显示加载状态
-  const btn = document.getElementById('organize-btn');
-  if (btn) {
-    btn.textContent = '正在加载...';
-    btn.disabled = true;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/migration-map/${familyId}`);
-    const data = await response.json();
-
-    if (!data.success) throw new Error(data.error || '数据加载失败');
-
-    // 保存到 sessionStorage 供 story-timeline 使用
-    sessionStorage.setItem('pending_chat_data', JSON.stringify({
-      familyId: familyId,
-      data:     data,
-      rawChatText: '',
-    }));
-
-    window.location.href = `story-timeline.html?familyId=${familyId}`;
-
-  } catch (e) {
-    console.error('[mobile-chat] 加载已有数据失败:', e);
-
-    // 恢复按钮状态
-    if (btn) {
-      btn.textContent = '查看家族地图 →';
-      btn.disabled = false;
-    }
-
-    // 数据不足时提示继续对话
-    alert('家族地图数据还不完整，请继续和我聊聊家人的迁徙经历。');
-  }
-}
-
-// ── 引导卡片更新（保留功能）──────────────────────────────
-
+// 更新引导卡片
 function updateGuidanceCards(questions) {
   const container = document.getElementById('guidance-cards');
   container.style.display = 'flex';
 
   const title = container.querySelector('.guidance-title');
-  title.textContent = '接下来你可以告诉我';
+  title.textContent = '接下来你可以问';
 
+  // 移除旧卡片
   container.querySelectorAll('.guidance-card').forEach(c => c.remove());
 
   questions.forEach(q => {
@@ -667,9 +558,169 @@ function updateGuidanceCards(questions) {
     card.className = 'guidance-card';
     card.onclick = () => useGuidance(card);
     card.dataset.text = q;
-    card.innerHTML = `<div class="gc-question">${q}</div>`;
+    card.innerHTML = `
+      <div class="gc-question">${q}</div>
+    `;
     container.appendChild(card);
   });
+}
+
+// 回车发送（不带 Shift）
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// 重置聊天
+function resetChat() {
+  if (!confirm('确定要清除所有聊天记录并重新开始吗？')) return;
+  clearState();
+  location.reload();
+}
+
+// 跳转到故事时间线
+function goToStoryTimeline() {
+  if (!state.messages || state.messages.length === 0) {
+    alert('请先完成家族故事对话');
+    return;
+  }
+
+  // 已有 familyId 时，直接使用缓存数据（跳过分析）
+  if (state.familyId) {
+    loadExistingData(state.familyId);
+    return;
+  }
+
+  // 首次分析，调用 extract API
+  // 显示加载提示
+  const btn = document.getElementById('organize-btn');
+  if (btn) {
+    btn.innerHTML = '正在解析家族数据...';
+    btn.disabled = true;
+  }
+  callExtractAPI();
+}
+
+// 加载已有数据（跳过分析）
+async function loadExistingData(familyId) {
+  console.log('[mobile-chat] 加载已有数据 familyId:', familyId);
+
+  try {
+    const response = await fetch(`${API_BASE}/migration-map/${familyId}`);
+    const data = await response.json();
+
+    console.log('[mobile-chat] 加载已有数据成功:', data);
+
+    if (!data.success) {
+      throw new Error(data.error || '数据加载失败');
+    }
+
+    // 保存到 sessionStorage 供 story-timeline 使用
+    const pendingData = {
+      familyId: familyId,
+      data: data,
+      rawChatText: '',  // 没有原始聊天内容
+    };
+    sessionStorage.setItem('pending_chat_data', JSON.stringify(pendingData));
+
+    // 跳转到 story-timeline
+    window.location.href = `/story-timeline.html?familyId=${familyId}`;
+
+  } catch (e) {
+    console.error('[mobile-chat] 加载已有数据失败:', e);
+    alert('加载失败：' + e.message + '\n将重新分析数据');
+    // 加载失败，回退到重新分析
+    callExtractAPI();
+  }
+}
+
+// 调用 extract API 解析家族数据
+async function callExtractAPI() {
+  const conversationText = state.messages
+    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+    .join('\n');
+
+  console.log('[mobile-chat] 调用 extract API');
+  console.log('[mobile-chat] state.familyId:', state.familyId);
+  console.log('[mobile-chat] state.messages 长度:', state.messages?.length);
+  console.log('[mobile-chat] conversationText 长度:', conversationText?.length);
+
+  // 检查是否有足够的对话内容
+  if (!conversationText || conversationText.length < 20) {
+    alert('对话内容太少，请先多聊一些家族故事');
+    const btn = document.querySelector('.generate-map-btn');
+    if (btn) {
+      btn.innerHTML = '整理家族故事 →';
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationText, familyId: state.familyId }),
+    });
+
+    console.log('[mobile-chat] response status:', response.status);
+    const extractData = await response.json();
+    console.log('[mobile-chat] extract API 返回:', extractData);
+
+    if (!extractData.success) {
+      throw new Error(extractData.error || '解析失败');
+    }
+
+    // 检查是否有有效的 familyId 返回
+    if (!extractData.familyId) {
+      throw new Error('API 没有返回 familyId');
+    }
+
+    // 保存到 sessionStorage 供 story-timeline 使用
+    const pendingData = {
+      familyId: extractData.familyId,
+      data: extractData.data,
+      rawChatText: conversationText,  // 保存原始聊天内容
+    };
+    sessionStorage.setItem('pending_chat_data', JSON.stringify(pendingData));
+    console.log('[mobile-chat] 已保存到 sessionStorage:', pendingData);
+    console.log('[mobile-chat] sessionStorage 内容:', sessionStorage.getItem('pending_chat_data'));
+
+    // 更新 state
+    state.familyId = extractData.familyId;
+    saveState();
+
+    // 跳转到 story-timeline 页面
+    const redirectUrl = `/story-timeline.html?familyId=${extractData.familyId}`;
+    console.log('[mobile-chat] 跳转到:', redirectUrl);
+    window.location.href = redirectUrl;
+
+  } catch (e) {
+    console.error('[mobile-chat] 解析失败:', e);
+    console.error('[mobile-chat] 错误堆栈:', e.stack);
+
+    // 即使失败也跳转到 story-timeline，但显示错误信息
+    const errorMsg = e.message || '解析失败，请重试';
+    sessionStorage.setItem('story_timeline_error', JSON.stringify({
+      error: errorMsg,
+      time: Date.now(),
+    }));
+
+    // 如果有临时 familyId 也传递
+    if (state.familyId) {
+      window.location.href = `/story-timeline.html?familyId=${state.familyId}`;
+    } else {
+      alert(errorMsg + '\n\n请确保聊天中包含家族故事信息（如家人、地点、时间等）');
+      // 恢复按钮
+      const btn = document.getElementById('organize-btn');
+      if (btn) {
+        btn.innerHTML = '整理家族故事 →';
+        btn.disabled = false;
+      }
+    }
+  }
 }
 </script>
 </body>
