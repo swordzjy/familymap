@@ -555,6 +555,26 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     if (missingCoords.length > 0) {
       log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
         missingCoords.map(r => `${r.from_place}→${r.to_place}`).join(', '));
+
+      // 动态获取缺失的坐标
+      for (const row of missingCoords) {
+        if (!row.from_lng && row.from_place_raw) {
+          const geo = await geocodePlace(row.from_place_raw);
+          if (geo) {
+            row.from_lng = geo.longitude;
+            row.from_lat = geo.latitude;
+            log.ok(`[migration-map] 动态补全坐标：${row.from_place_raw} → ${geo.longitude}, ${geo.latitude}`);
+          }
+        }
+        if (!row.to_lng && row.to_place_raw) {
+          const geo = await geocodePlace(row.to_place_raw);
+          if (geo) {
+            row.to_lng = geo.longitude;
+            row.to_lat = geo.latitude;
+            log.ok(`[migration-map] 动态补全坐标：${row.to_place_raw} → ${geo.longitude}, ${geo.latitude}`);
+          }
+        }
+      }
     }
 
     log.ok(`[migration-map] 返回成功  events=${events.length}`);
