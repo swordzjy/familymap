@@ -20,7 +20,18 @@
       "Bash(sed -i '' '289,309s/const isComplete = fullText/const elapsed = Date.now\\(\\) - startTime;\\\\n      const isComplete = fullText/' /Users/jianyu/Documents/feisu/xungen/wangzu-map/backend/server.js)",
       "Bash(sed -i '' 's/chunks=/耗时=${elapsed}ms  chunks=/' /Users/jianyu/Documents/feisu/xungen/wangzu-map/backend/server.js)",
       "Bash(psql -U postgres -d family_migration -f multi-stories-data.sql)",
-      "mcp__openspec__openspec_validate_all"
+      "mcp__openspec__openspec_validate_all",
+      "Bash(node:*)",
+      "Bash(git checkout:*)",
+      "Bash(mv /tmp/server_new.js /Users/jianyu/Documents/feisu/xungen/wangzu-map/backend/server.js)",
+      "Bash(ls -la backend/server.js*)",
+      "Bash(cp:*)",
+      "Bash(ls:*)",
+      "mcp__obsidian__patch_note",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "Bash(npm search:*)",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
     ]
   }
 }

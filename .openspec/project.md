@@ -206,10 +206,10 @@ users (可选)
 
 ```bash
 # 1. 创建数据库
-createdb -U postgres family_migration
+createdb -h localhost -U aifeisu family_migration
 
 # 2. 执行建库脚本
-psql -U postgres -d family_migration -f sql/deploy.sql
+psql -h localhost -U aifeisu -d family_migration -f sql/deploy.sql
 
 # 3. 安装依赖
 cd backend && npm install
@@ -229,7 +229,7 @@ open http://localhost:3005
 
 ```bash
 # SQL 方式
-psql -U postgres -d family_migration -f sql/check-and-fix-data.sql
+psql -h localhost -U aifeisu -d family_migration -f sql/check-and-fix-data.sql
 
 # Web 方式
 open http://localhost:3005/data-tools.html

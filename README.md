@@ -50,13 +50,13 @@ family-migration-demo/
 
 ```bash
 # 1. 创建数据库
-psql -U postgres -c "CREATE DATABASE family_migration;"
+psql -h localhost -U aifeisu -c "CREATE DATABASE family_migration;"
 
 # 2. 执行建库语句（包含历史事件预置数据）
-psql -U postgres -d family_migration -f sql/schema.sql
+psql -h localhost -U aifeisu -d family_migration -f sql/schema.sql
 
 # 3. 验证
-psql -U postgres -d family_migration -c "SELECT COUNT(*) FROM historical_events;"
+psql -h localhost -U aifeisu -d family_migration -c "SELECT COUNT(*) FROM historical_events;"
 # 应输出 16（预置了16条历史事件）
 ```
 

@@ -15,7 +15,7 @@
 
 ```bash
 cd /Users/jianyu/Documents/feisu/xungen/wangzu-map/sql
-psql -U postgres -d family_migration -f multi-stories-data.sql
+psql -h localhost -U aifeisu -d family_migration -f multi-stories-data.sql
 ```
 
 ### 2. 启动后端服务

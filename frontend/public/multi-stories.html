@@ -285,17 +285,6 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .cp-meta{font-size:12px;color:var(--mist2);margin-bottom:10px;font-family:var(--mono);}
 .cp-story{font-size:13px;color:var(--mist);line-height:1.7;}
 
-/* ========== 返回按钮 ========== */
-.back-btn{
-  position:absolute;top:72px;left:20px;z-index:60;
-  height:36px;padding:0 16px;border-radius:18px;
-  border:1px solid var(--mist4);background:rgba(9,8,6,.8);
-  backdrop-filter:blur(8px);
-  font-family:var(--sans);font-size:13px;color:var(--mist2);
-  cursor:pointer;transition:all .2s;
-  display:flex;align-items:center;gap:6px;
-}
-.back-btn:hover{background:var(--mist4);color:var(--cream);border-color:var(--gold);}
 </style>
 </head>
 <body>
@@ -358,8 +347,7 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
         <div class="cp-story" id="cp-story"></div>
       </div>
 
-      <!-- 返回按钮 -->
-      <button class="back-btn" onclick="location.href='index.html'">← 返回</button>
+     
 
       <!-- 底部信息栏 -->
       <div class="map-bot">
@@ -414,20 +402,42 @@ async function loadDemoStories() {
       if (STORIES.length > 0) {
         console.log('[demo-stories] 加载完成，共', STORIES.length, '个故事');
         renderStorySelector();
+        renderMapContent();
         return;
       }
     }
 
-    // 数据库没有数据，使用备用数据
-    console.log('[demo-stories] 数据库无数据，使用内置备用数据');
-    STORIES = buildFallbackStories();
-    renderStorySelector();
+    // 数据库没有数据，显示空状态
+    console.log('[demo-stories] 数据库无数据');
+    showEmptyState();
 
   } catch (err) {
     console.error('[demo-stories] 加载失败:', err);
-    // 使用内置的备用数据
-    STORIES = buildFallbackStories();
-    renderStorySelector();
+    // 显示错误状态
+    showEmptyState();
+  }
+}
+
+// 显示空状态
+function showEmptyState() {
+  const selector = document.getElementById('story-selector');
+  const mapTitle = document.getElementById('map-title');
+  const chipsContainer = document.getElementById('chips-container');
+
+  if (selector) {
+    selector.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mist2);font-size:14px;">暂无家族故事，请先在对话页面采集数据</div>';
+  }
+  if (mapTitle) {
+    mapTitle.textContent = '暂无数据';
+  }
+  if (chipsContainer) {
+    chipsContainer.innerHTML = '';
+  }
+
+  // 隐藏事件卡片
+  const eventEl = document.getElementById('migration-event');
+  if (eventEl) {
+    eventEl.classList.remove('visible');
   }
 }
 
@@ -531,165 +541,13 @@ function getPathColor(reasonType) {
   return colors[reasonType] || '#c8a96e';
 }
 
-// 备用数据（当 API 不可用时）
+// ============================================================
+// 备用数据（已废弃 - 仅用于开发调试）
+// 不再使用：数据应始终从数据库加载，避免不一致
+// ============================================================
 function buildFallbackStories() {
-  return [
-    {
-      id: 1,
-      familyName: '林家',
-      title: '闯关东 (1890-1895)',
-      period: '清末',
-      type: 'survival',
-      color: '#c8a96e',
-      stats: { generations: 3, years: 5, cities: 3 },
-      cities: [
-        { name: '黄县', lng: 120.523, lat: 37.640, color: '#c8a96e', label: '起点·1875',
-          story: '林德福 1875 年生于山东登州府黄县，贫农之家，濒临黄海。清末灾荒连年，决定举家闯关东。' },
-        { name: '营口', lng: 122.235, lat: 40.667, color: '#e07258', label: '中转·1890',
-          story: '1890 年，乘船渡过渤海湾，在营口登陆。这是家族第一次踏上东北的土地。' },
-        { name: '哈尔滨', lng: 126.535, lat: 45.803, color: '#3ec9a0', label: '落脚·1895',
-          story: '1895 年北上垦荒，最终在哈尔滨附近定居。松花江畔的黑土地，成为新的家园。' }
-      ],
-      routes: [
-        { from: 0, to: 1, color: '#c8a96e', width: 3, label: '渡海闯关东', year: '1890',
-          event: '举家渡海', desc: '带着全部家当，乘木船渡过渤海湾。这是生死未卜的旅程。', reason: '闯关东逃荒',
-          narrative: `「那天凌晨，天还没亮，父亲就把我叫醒。家里所有值钱的东西，就是几件破衣服和一袋干粮。
-
-码头上全是人，大家都沉默着，没人知道过了海会是什么日子。船很小，浪很大，母亲抱着妹妹一直在哭。
-
-我说别怕，过了海就有好日子了。可我自己心里也没底……」` },
-        { from: 1, to: 2, color: '#e07258', width: 3, label: '北上垦荒', year: '1895',
-          event: '北上垦荒', desc: '从营口一路北上，在哈尔滨附近开垦荒地，定居下来。', reason: '垦荒定居',
-          narrative: `「在营口歇了两年，还是站不住脚。听说北边有荒地可以开垦，咬咬牙又往北走。
-
-一路上全是土路，马车走了半个月。到哈尔滨那天，下着大雪，天地间白茫茫一片。
-
-我指着脚下的地说，就在这里了，这辈子再也不挪窝。没想到，这一待就是三代人……」` }
-      ]
-    },
-    {
-      id: 2,
-      familyName: '陈家',
-      title: '抗战西迁 (1937-1946)',
-      period: '抗战',
-      type: 'war',
-      color: '#e07258',
-      stats: { generations: 3, years: 9, cities: 3 },
-      cities: [
-        { name: '南京', lng: 118.796, lat: 32.060, color: '#6aabdc', label: '起点·1902',
-          story: '陈文渊 1902 年生于南京，中央大学教授。1937 年抗战爆发，被迫举家西迁。' },
-        { name: '武汉', lng: 114.305, lat: 30.593, color: '#e07258', label: '中转·1937',
-          story: '1937 年 8 月，淞沪会战爆发，全家紧急撤离南京，抵达武汉暂避。' },
-        { name: '重庆', lng: 106.551, lat: 29.563, color: '#c8a96e', label: '避难·1938-1946',
-          story: '1938 年武汉告急，再迁重庆。在歌乐山脚下，度过了 8 年抗战岁月。1946 年胜利还乡。' }
-      ],
-      routes: [
-        { from: 0, to: 1, color: '#6aabdc', width: 3, label: '撤离南京', year: '1937',
-          event: '紧急西撤', desc: '淞沪会战爆发，南京告急。全家乘船沿长江西上，抵达武汉。', reason: '抗战爆发举家西迁',
-          narrative: `「1937 年 8 月 13 日，淞沪会战爆发。南京城里的空气每天都绷得紧紧的。
-
-15 号那天，学校通知我紧急撤离。我只来得及收拾几箱书，还有文渊的手稿。码头上人山人海，船票早就卖光了。
-
-最后是一位熟识的船长，看我们是教书的，悄悄让我们上了船。回头望着南京的方向，心里想，什么时候才能回来啊……」` },
-        { from: 1, to: 2, color: '#e07258', width: 3, label: '再迁重庆', year: '1938',
-          event: '武汉会战', desc: '1938 年 6 月武汉会战爆发，全家再次西迁至重庆。', reason: '武汉会战避难',
-          narrative: `「在武汉待了不到一年，日本人已经打到安庆了。1938 年春天，我们跟着中央大学的队伍往重庆撤。
-
-一路上走的都是山路，汽车在悬崖边上开，下面是万丈深渊。
-
-到了重庆，住在歌乐山脚下，房子是土坯的，下雨天漏水。但好歹一家人在一起，孩子们还能继续读书……」` },
-        { from: 2, to: 0, color: '#3ec9a0', width: 3, label: '胜利还乡', year: '1946',
-          event: '抗战胜利', desc: '1945 年 8 月抗战胜利，1946 年春天全家返回南京。', reason: '抗战胜利还乡',
-          narrative: `「1945 年 8 月 15 日那天，整个重庆都在放鞭炮。八年了，终于等到了。
-
-1946 年春天，我们坐船回南京。还是那个码头，还是那条长江，可已经不是当年的心情了。
-
-家里的老房子还在，虽然破败了不少。站在院子里，想起离开那天的慌乱，恍如隔世……」` }
-      ]
-    },
-    {
-      id: 3,
-      familyName: '赵家',
-      title: '三线建设 (1964-1982)',
-      period: '建国后',
-      type: 'policy',
-      color: '#3ec9a0',
-      stats: { generations: 2, years: 18, cities: 4 },
-      cities: [
-        { name: '上海', lng: 121.473, lat: 31.231, color: '#3ec9a0', label: '起点·1932',
-          story: '赵志刚 1932 年生于上海，石化厂工程师。1964 年响应号召支援大西北。' },
-        { name: '兰州', lng: 103.834, lat: 36.061, color: '#e07258', label: '支援·1964',
-          story: '1964 年，带着全家来到兰州石化基地。儿子赵建华 1958 年出生在这里。' },
-        { name: '西安', lng: 108.940, lat: 34.341, color: '#6aabdc', label: '求学·1978',
-          story: '1978 年，赵建华考入西安交通大学，离开兰州到西安读书。' },
-        { name: '上海', lng: 121.473, lat: 31.231, color: '#c8a96e', label: '回沪·1982',
-          story: '1982 年大学毕业，赵建华选择回到父亲当年离开的上海工作。' }
-      ],
-      routes: [
-        { from: 0, to: 1, color: '#3ec9a0', width: 3, label: '支援西北', year: '1964',
-          event: '三线建设', desc: '响应"好人好马上三线"号召，告别黄浦江，来到黄河边。', reason: '响应号召支援三线',
-          narrative: `「1964 年，厂里动员支援大西北。说是要建石化基地，需要技术骨干。我想都没想就报了名。秀英说，你去哪我去哪。
-
-把上海的房子退了，家具全送了人，就带着几件行李和儿子的奶粉，坐上西去的火车。三天三夜，到了兰州。
-
-一下车，满嘴都是土腥味。可这是自己选的路，跪着也要走下去……」` },
-        { from: 1, to: 2, color: '#6aabdc', width: 3, label: '考入大学', year: '1978',
-          event: '恢复高考', desc: '1977 年恢复高考，赵建华考入西安交大，离开兰州。', reason: '考入西安交大',
-          narrative: `「77 年冬天，广播里说恢复高考了。建华那小子高兴得跳起来，说他要考大学。那时候他都 19 岁了，在厂里当学徒。
-
-每天晚上干活回来，就点着煤油灯看书。第二年夏天，收到西安交大的录取通知书。全家人在厂门口放了一挂鞭炮。
-
-送他去车站那天，我没说话，就是拍着他的肩膀。他知道，这是咱们家翻身的机会……」` },
-        { from: 2, to: 0, color: '#c8a96e', width: 3, label: '回沪工作', year: '1982',
-          event: '大学毕业', desc: '1982 年毕业，赵建华选择回到祖辈生活过的上海。', reason: '大学毕业回沪工作',
-          narrative: `「82 年毕业，建华说想回上海。我没拦他，说你想去哪就去哪。他说爸，我想回咱们老家看看。
-
-我说好啊，你爷爷奶奶当年就是从上海出来的。他走那天，我送到火车站，看着火车远去。
-
-心里想，这辈子，总算是把根从上海挪到了兰州，又从兰州散到了四面八方。可只要一家人平平安安，根在哪里，又有什么关系呢……」` }
-      ]
-    },
-    {
-      id: 4,
-      familyName: '周家',
-      title: '南下创业 (1985-2010)',
-      period: '改革开放',
-      type: 'work',
-      color: '#a890e0',
-      stats: { generations: 2, years: 25, cities: 3 },
-      cities: [
-        { name: '沈阳', lng: 123.431, lat: 41.805, color: '#a890e0', label: '起点·1965',
-          story: '周志强 1965 年生于沈阳，国企工人。1985 年下岗后决定南下创业。' },
-        { name: '深圳', lng: 114.057, lat: 22.543, color: '#3ec9a0', label: '创业·1985',
-          story: '1985 年来到深圳特区，从打工开始，后来创业。妻子李梅 1987 年也来到深圳。' },
-        { name: '广州', lng: 113.264, lat: 23.129, color: '#6aabdc', label: '发展·2010',
-          story: '2010 年，儿子周天宇工作调动到广州，在这里安家立业。' }
-      ],
-      routes: [
-        { from: 0, to: 1, color: '#a890e0', width: 3, label: '南下打工', year: '1985',
-          event: '改革开放', desc: '国企下岗，带着 200 元钱和一身胆量，南下深圳。', reason: '南下打工创业',
-          narrative: `「85 年，厂里说下岗就下岗了。拿了 500 块补偿金，留了 200 块，剩下的都给家里。梅子说，要不咱做点小生意？
-
-我说要做就去深圳，那是特区，有机会。走那天，儿子才 5 岁，抱着我的腿哭。我说爸爸去挣钱，回来给你买大房子。
-
-其实心里一点底都没有，就知道那边要人肯吃苦……」` },
-        { from: 0, to: 1, color: '#3ec9a0', width: 3, label: '夫妻团聚', year: '1987',
-          event: '家庭团聚', desc: '妻子李梅辞去工作，来到深圳与丈夫团聚。', reason: '夫妻团聚',
-          narrative: `「志强走了两年，梅子在家照顾老人孩子。87 年春天，她说要去深圳找志强。家里人都拦着，说一个女人家跑那么远不安全。
-
-她说我不管，夫妻总不能一辈子两地分居。到深圳那天，志强来接她，瘦得不成样子。
-
-他说你来了就好，咱俩一起干，总能把日子过起来……」` },
-        { from: 1, to: 2, color: '#6aabdc', width: 3, label: '工作调动', year: '2010',
-          event: '事业发展', desc: '儿子周天宇因工作调动，从深圳迁居广州。', reason: '工作调动',
-          narrative: `「天宇从小就聪明，考上了广州的大学，后来在深圳工作。10 年说公司要调他去广州，做区域经理。
-
-我说好啊，离家近。他说爸，你和妈要不要一起过来？我说我们老了，在深圳挺好的，你去了好好干。
-
-他走那天，梅子哭了，说孩子长大了，飞得越来越远。可这不就是我们想要的吗……」` }
-      ]
-    }
-  ];
+  console.warn('[buildFallbackStories] 已废弃：数据应从数据库加载');
+  return [];  // 返回空数组，强制使用数据库数据
 }
 
 // 渲染故事选择器

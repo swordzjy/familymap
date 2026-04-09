@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0049)file:///Users/jianyu/Downloads/mobile-chat_2.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>家族迁徙 · 寻根</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="./mobile-chat_files/css2" rel="stylesheet">
 
 <style>
 :root{
@@ -126,11 +126,11 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   display:flex;align-items:center;gap:7px;
   white-space:nowrap;
   cursor:pointer;
-  /* 从右侧屏幕外出发 */
-  transform:translateX(110vw);
-  /* 点击反馈 */
+  /* 初始位置由 JS 通过 left 控制，不在此设置 transform */
   transition:opacity .15s;
   -webkit-user-select:none;user-select:none;
+  /* Chrome 需要明确的 will-change 触发 GPU 合成层 */
+  will-change:transform;
 }
 .danmaku-item:active{ opacity:.7; }
 
@@ -178,10 +178,10 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .style-cream .danmaku-dot{ background:var(--mist); }
 .style-teal  .danmaku-dot{ background:#3ec9a0; }
 
-/* 弹幕滚动动画 */
+/* 弹幕滚动动画 — 从 left 定位出发，向左平移到屏幕外 */
 @keyframes danmakuFly{
-  from{ transform:translateX(110vw); }
-  to  { transform:translateX(-110%); }
+  from{ transform:translateX(0); }
+  to  { transform:translateX(calc(-110vw - 100%)); }
 }
 
 /* 轨道高度（每轨 28px 含间距） */
@@ -390,7 +390,7 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 <div class="nav-bar">
   <div class="nav-title">寻根</div>
   <div style="display:flex;gap:8px;">
-    <a href="#" onclick="resetChat();return false;" class="nav-action" style="font-size:12px;padding:6px 10px;">重新开始</a>
+    <a href="file:///Users/jianyu/Downloads/mobile-chat_2.html#" onclick="resetChat();return false;" class="nav-action" style="font-size:12px;padding:6px 10px;">重新开始</a>
   </div>
 </div>
 
@@ -418,7 +418,182 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
   <!-- 弹幕式提示区 -->
   <div class="guidance-cards" id="guidance-cards">
-    <div class="danmaku-stage" id="danmaku-stage"></div>
+    <div class="danmaku-stage" id="danmaku-stage"><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我叫王明，1985年生，老家黑龙江双城，现在住北京。</span>
+        <span class="danmaku-hint">· 名字·出生年份·老家·现居地</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我外公抗战时期从南京迁到四川，后来没回去。</span>
+        <span class="danmaku-hint">· 历史背景下的迁徙</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我中间搬过几次，先广州，后来又去了深圳。</span>
+        <span class="danmaku-hint">· 多次迁徙可以一起说</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我父母都是本地人，没怎么搬过家。</span>
+        <span class="danmaku-hint">· 没有迁徙也是信息</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">听说爷爷那辈是逃荒过来的，具体年代记不清了。</span>
+        <span class="danmaku-hint">· 模糊年代我来推断</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我叫王明，1985年生，老家黑龙江双城，现在住北京。</span>
+        <span class="danmaku-hint">· 名字·出生年份·老家·现居地</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我是四川人，在成都长大，后来去的上海工作。</span>
+        <span class="danmaku-hint">· 用"哪里人"描述根在哪</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我想先聊聊我父亲那辈的故事。</span>
+        <span class="danmaku-hint">· 从最熟悉的家人开始</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">2003年考上大学去了北京，毕业后就留下来了。</span>
+        <span class="danmaku-hint">· 时间＋目的地＋原因</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我爷爷是双城本地人，奶奶从山东闯关东过来的。</span>
+        <span class="danmaku-hint">· 两支祖辈来源地</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">大概2010年前后，因为工作机会去了上海。</span>
+        <span class="danmaku-hint">· 年份不确定也没关系</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我父亲是辽宁铁岭人，一辈子在工厂当工人。</span>
+        <span class="danmaku-hint">· 籍贯＋职业勾勒画像</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我外公抗战时期从南京迁到四川，后来没回去。</span>
+        <span class="danmaku-hint">· 历史背景下的迁徙</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我妈是山东人，嫁给我爸后就在他家乡生活。</span>
+        <span class="danmaku-hint">· 母亲的来处也很重要</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我中间搬过几次，先广州，后来又去了深圳。</span>
+        <span class="danmaku-hint">· 多次迁徙可以一起说</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我父母都是本地人，没怎么搬过家。</span>
+        <span class="danmaku-hint">· 没有迁徙也是信息</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">听说爷爷那辈是逃荒过来的，具体年代记不清了。</span>
+        <span class="danmaku-hint">· 模糊年代我来推断</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我叫王明，1985年生，老家黑龙江双城，现在住北京。</span>
+        <span class="danmaku-hint">· 名字·出生年份·老家·现居地</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我是四川人，在成都长大，后来去的上海工作。</span>
+        <span class="danmaku-hint">· 用"哪里人"描述根在哪</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我想先聊聊我父亲那辈的故事。</span>
+        <span class="danmaku-hint">· 从最熟悉的家人开始</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">2003年考上大学去了北京，毕业后就留下来了。</span>
+        <span class="danmaku-hint">· 时间＋目的地＋原因</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我爷爷是双城本地人，奶奶从山东闯关东过来的。</span>
+        <span class="danmaku-hint">· 两支祖辈来源地</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">大概2010年前后，因为工作机会去了上海。</span>
+        <span class="danmaku-hint">· 年份不确定也没关系</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我父亲是辽宁铁岭人，一辈子在工厂当工人。</span>
+        <span class="danmaku-hint">· 籍贯＋职业勾勒画像</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我外公抗战时期从南京迁到四川，后来没回去。</span>
+        <span class="danmaku-hint">· 历史背景下的迁徙</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我妈是山东人，嫁给我爸后就在他家乡生活。</span>
+        <span class="danmaku-hint">· 母亲的来处也很重要</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我中间搬过几次，先广州，后来又去了深圳。</span>
+        <span class="danmaku-hint">· 多次迁徙可以一起说</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我父母都是本地人，没怎么搬过家。</span>
+        <span class="danmaku-hint">· 没有迁徙也是信息</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">听说爷爷那辈是逃荒过来的，具体年代记不清了。</span>
+        <span class="danmaku-hint">· 模糊年代我来推断</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我叫王明，1985年生，老家黑龙江双城，现在住北京。</span>
+        <span class="danmaku-hint">· 名字·出生年份·老家·现居地</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我是四川人，在成都长大，后来去的上海工作。</span>
+        <span class="danmaku-hint">· 用"哪里人"描述根在哪</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我想先聊聊我父亲那辈的故事。</span>
+        <span class="danmaku-hint">· 从最熟悉的家人开始</span>
+      </div></div><div class="danmaku-item style-cream" data-track="1" style="visibility: visible; top: 33px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">2003年考上大学去了北京，毕业后就留下来了。</span>
+        <span class="danmaku-hint">· 时间＋目的地＋原因</span>
+      </div></div><div class="danmaku-item style-gold" data-track="0" style="visibility: visible; top: 4px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">我爷爷是双城本地人，奶奶从山东闯关东过来的。</span>
+        <span class="danmaku-hint">· 两支祖辈来源地</span>
+      </div></div><div class="danmaku-item style-teal" data-track="2" style="visibility: visible; top: 62px; left: 0px;">
+      <div class="danmaku-pill">
+        <div class="danmaku-dot"></div>
+        <span class="danmaku-text">大概2010年前后，因为工作机会去了上海。</span>
+        <span class="danmaku-hint">· 年份不确定也没关系</span>
+      </div></div></div>
   </div>
 
   <!-- 快捷操作栏 -->
@@ -435,7 +610,7 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
     </div>
     <button class="send-btn" onclick="sendMessage()">
       <svg viewBox="0 0 24 24">
-        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
       </svg>
     </button>
   </div>
@@ -997,7 +1172,7 @@ const Danmaku = (() => {
 
   function createItem(item, track) {
     const el = document.createElement('div');
-    el.className = `danmaku-item ${STYLES[track % STYLES.length]}`;
+    el.className     = `danmaku-item ${STYLES[track % STYLES.length]}`;
     el.dataset.track = track;
     el.innerHTML = `
       <div class="danmaku-pill">
@@ -1005,17 +1180,6 @@ const Danmaku = (() => {
         <span class="danmaku-text">${item.text}</span>
         ${item.hint ? `<span class="danmaku-hint">· ${item.hint}</span>` : ''}
       </div>`;
-
-    el.addEventListener('click', () => {
-      const inp = document.getElementById('chat-input');
-      if (inp) { inp.value = item.text; inp.focus(); }
-      el.style.transition = 'opacity .2s';
-      el.style.opacity = '0';
-      setTimeout(() => el.remove(), 220);
-    });
-
-    el.addEventListener('touchstart', () => el.classList.add('paused'),   {passive:true});
-    el.addEventListener('touchend',   () => el.classList.remove('paused'), {passive:true});
     return el;
   }
 
@@ -1026,7 +1190,10 @@ const Danmaku = (() => {
     const track = pickTrack();
     const el    = createItem(item, track);
 
+    // 先隐藏插入，量出真实宽度
     el.style.visibility = 'hidden';
+    el.style.top        = `${track * 29 + 4}px`;
+    el.style.left       = '0';          // 锚点在左侧，通过 transform 偏移到右侧外
     stage.appendChild(el);
 
     requestAnimationFrame(() => {
@@ -1037,12 +1204,35 @@ const Danmaku = (() => {
 
       trackCooldown[track] = Date.now() + (MIN_GAP / speed) * 1000;
 
-      el.style.top        = `${track * 29 + 4}px`;
-      el.style.left       = `${stageW + 8}px`;
-      el.style.visibility = 'visible';
-      el.style.animation  = `danmakuFly ${durSec.toFixed(2)}s linear forwards`;
+      // 用 transform 把元素初始定位到屏幕右侧外
+      // keyframes 从 translateX(totalDist px) 飞到 translateX(-itemW px)
+      const keyframes = [
+        { transform: `translateX(${totalDist}px)` },
+        { transform: `translateX(${-itemW - 8}px)` },
+      ];
+      const animation = el.animate(keyframes, {
+        duration: durSec * 1000,
+        easing:   'linear',
+        fill:     'forwards',
+      });
 
-      el.addEventListener('animationend', () => el.remove(), {once:true});
+      el.style.visibility = 'visible';
+
+      animation.onfinish = () => el.remove();
+
+      // 触摸暂停（Web Animations API 版）
+      el.addEventListener('touchstart', () => animation.pause(),  {passive:true});
+      el.addEventListener('touchend',   () => animation.play(),   {passive:true});
+
+      // 点击填入输入框
+      el.addEventListener('click', () => {
+        const inp = document.getElementById('chat-input');
+        if (inp) { inp.value = item.text; inp.focus(); }
+        animation.cancel();
+        el.style.transition = 'opacity .2s';
+        el.style.opacity    = '0';
+        setTimeout(() => el.remove(), 220);
+      }, {once:true});
 
       const nextDelay = 900 + Math.random() * 1400;
       const t = setTimeout(fire, nextDelay);
@@ -1126,5 +1316,6 @@ window.addEventListener('load', () => {
   }
 });
 </script>
-</body>
-</html>
+
+
+</body></html>

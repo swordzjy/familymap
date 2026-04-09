@@ -344,6 +344,87 @@ body {
 .send-btn:disabled { opacity: 0.3; cursor: default; }
 .send-btn svg { width: 16px; height: 16px; }
 
+/* 引导提示 chip 区 */
+.suggestion-area {
+  padding: 6px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--paper);
+}
+.suggestion-label {
+  font-size: 10px;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+  font-family: 'DM Mono', monospace;
+}
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.suggestion-chip {
+  font-size: 11px;
+  color: var(--ink-light);
+  background: var(--paper-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+  max-width: 100%;
+}
+.suggestion-chip:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+  background: var(--paper);
+}
+.suggestion-chip .chip-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+/* 断点续聊横幅 */
+.resume-banner {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--gold);
+  color: var(--night);
+  padding: 10px 16px;
+  cursor: pointer;
+  border-top: 1px solid var(--border);
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.resume-banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+}
+.resume-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.resume-banner-close {
+  font-size: 18px;
+  opacity: 0.7;
+}
+.resume-banner:hover .resume-banner-close {
+  opacity: 1;
+}
+
 /* 生成按钮 */
 .generate-btn {
   width: 100%;
@@ -597,10 +678,10 @@ body {
       <p>用你自己的方式描述，我来帮你整理</p>
     </div>
     <div class="chat-messages" id="chat-messages">
-      <!-- 初始欢迎消息 -->
+      <!-- 初始欢迎消息 - 故事钩子开场白 -->
       <div class="msg msg-ai">
         <div class="msg-label">寻根</div>
-        <div class="bubble">你好，我来帮你记录你的家族故事。<br><br>先说说你自己吧——你现在住在哪里？</div>
+        <div class="bubble">你好，我来帮你记录你的家族故事。<br><br>您这辈子最难忘的一个地方是哪里？为什么？</div>
       </div>
     </div>
     <div class="chat-input-area">
@@ -620,6 +701,20 @@ body {
           <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
         </svg>
       </button>
+    </div>
+
+    <!-- 引导提示 chip 区 -->
+    <div class="suggestion-area" id="suggestion-area">
+      <div class="suggestion-label" id="suggestion-label">先说说你自己</div>
+      <div class="suggestion-chips" id="suggestion-chips"></div>
+    </div>
+
+    <!-- 断点续聊横幅 -->
+    <div class="resume-banner" id="resume-banner" style="display:none;" onclick="resumeChat()">
+      <div class="resume-banner-content">
+        <span class="resume-banner-text">↺ 继续上次的对话</span>
+        <span class="resume-banner-close">×</span>
+      </div>
     </div>
   </div>
 
@@ -1068,6 +1163,68 @@ function removeTyping() {
   document.getElementById('typing-indicator')?.remove();
 }
 
+// ── 阶段引导文案（与 mobile-chat 一致）────────────────────────
+const PHASE_SUGGESTIONS = {
+  self_info: {
+    label: '先说说你自己',
+    chips: [
+      { text: '我叫王明，1985年生，老家黑龙江双城，现在住北京。', hint: '名字·出生年份·老家·现居地' },
+      { text: '我是四川人，在成都长大，后来去的上海工作。',       hint: '用"哪里人"描述根在哪' },
+      { text: '我想先聊聊我父亲那辈的故事。',                     hint: '也可以从最熟悉的家人开始' },
+    ],
+  },
+  self_migration: {
+    label: '你的迁徙经历',
+    chips: [
+      { text: '2003年考上大学去了北京，毕业后就留下来了。',       hint: '时间·目的地·原因，三要素最关键' },
+      { text: '大概2010年前后，因为工作机会去了上海。',           hint: '年份不确定也没关系' },
+      { text: '我中间搬过几次，先广州后来又去了深圳。',           hint: '多次迁徙可以一起说' },
+    ],
+  },
+  parent_info: {
+    label: '再说说你父母',
+    chips: [
+      { text: '我父亲是辽宁铁岭人，一辈子在工厂当工人。',         hint: '籍贯 + 职业' },
+      { text: '我妈是山东人，嫁给我爸后就一直在他家乡生活。',     hint: '母亲的来处也很重要' },
+      { text: '我父母都是本地人，没怎么搬过家。',                 hint: '没有迁徙也是重要信息' },
+    ],
+  },
+  grand_info: {
+    label: '聊聊爷爷奶奶那辈',
+    chips: [
+      { text: '我爷爷是双城本地人，奶奶是从山东闯关东过来的。',   hint: '两支祖辈的来源地' },
+      { text: '听说爷爷那辈是逃荒过来的，具体年代记不清了。',     hint: '模糊的年代也能记录' },
+      { text: '我外公是抗战时期从南京迁到四川的，后来没回去。',   hint: '历史背景下的迁徙故事' },
+    ],
+  },
+};
+
+function updateSuggestions(phase) {
+  const cfg = PHASE_SUGGESTIONS[phase];
+  if (!cfg) return;
+
+  document.getElementById('suggestion-label').textContent = cfg.label;
+  const container = document.getElementById('suggestion-chips');
+  container.innerHTML = '';
+
+  cfg.chips.forEach(({ text, hint }) => {
+    const chip = document.createElement('div');
+    chip.className = 'suggestion-chip';
+    chip.innerHTML = `${text}<span class="chip-hint">${hint}</span>`;
+    chip.onclick = () => {
+      const input = document.getElementById('chat-input');
+      input.value = text;
+      input.focus();
+      // 隐藏 chip 区，用户发送后恢复
+      document.getElementById('suggestion-area').style.display = 'none';
+    };
+    container.appendChild(chip);
+  });
+}
+
+// 初始化：显示 self_info 阶段提示
+updateSuggestions('self_info');
+
 async function sendMessage() {
   const input    = document.getElementById('chat-input');
   const sendBtn  = document.getElementById('send-btn');
@@ -1083,7 +1240,7 @@ async function sendMessage() {
   showTyping();
 
   try {
-    const response = await fetch(`${API_BASE}/chat`, {
+    const response = await fetch(`${API_BASE}/agent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: state.messages, familyId: state.familyId }),
@@ -1093,6 +1250,7 @@ async function sendMessage() {
     const decoder   = new TextDecoder();
     let   aiContent = '';
     let   aiDiv     = null;
+    let   buffer    = '';
 
     removeTyping();
 
@@ -1100,33 +1258,49 @@ async function sendMessage() {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const text = decoder.decode(value);
-      const lines = text.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
-        try {
-          const data = JSON.parse(line.slice(5));
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        let data;
+        try { data = JSON.parse(raw); } catch { continue; }
 
-          if (data.type === 'text') {
-            aiContent += data.content;
-            if (!aiDiv) {
-              aiDiv = addMessage('assistant', '');
-            }
-            aiDiv.querySelector('.bubble').innerHTML =
-              aiContent.replace(/\n/g, '<br>').replace('[INFO_COMPLETE]', '');
-            document.getElementById('chat-messages').scrollTop = 99999;
+        if (data.type === 'text') {
+          aiContent += data.content;
+          if (!aiDiv) aiDiv = addMessage('assistant', '');
+          aiDiv.querySelector('.bubble').innerHTML =
+            aiContent.replace(/\n/g, '<br>');
+          document.getElementById('chat-messages').scrollTop = 99999;
+        }
+
+        if (data.type === 'done') {
+          state.messages.push({ role: 'assistant', content: aiContent });
+
+          // 更新 familyId
+          if (data.familyId && !state.familyId) {
+            state.familyId = data.familyId;
           }
 
-          if (data.type === 'done') {
-            state.messages.push({ role: 'assistant', content: aiContent });
-
-            if (data.isComplete || state.messages.length >= 10) {
-              state.isInfoComplete = true;
-              document.getElementById('generate-btn').classList.add('visible');
-            }
+          // 根据阶段更新引导 chip
+          if (data.phase) {
+            updateSuggestions(data.phase);
+            document.getElementById('suggestion-area').style.display = 'flex';
           }
-        } catch {}
+
+          // 信息完整时显示生成地图按钮
+          if (data.isComplete) {
+            state.isInfoComplete = true;
+            document.getElementById('generate-btn').classList.add('visible');
+            document.getElementById('suggestion-area').style.display = 'none';
+          }
+
+          // 保存对话状态
+          saveChatSession();
+        }
       }
     }
 
@@ -1326,10 +1500,92 @@ document.getElementById('chat-input').addEventListener('input', function () {
   this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
 
+// ============================================================
+// 断点续聊功能
+// ============================================================
+
+// 检查是否有未完成的对话
+function checkResumeChat() {
+  try {
+    const session = JSON.parse(localStorage.getItem('chatSession') || '{}');
+    if (session.familyId && session.lastPrompt && session.lastUserInput) {
+      const banner = document.getElementById('resume-banner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.querySelector('.resume-banner-text').textContent =
+          `↺ 继续：${session.lastPrompt.slice(0, 30)}${session.lastPrompt.length > 30 ? '...' : ''}`;
+      }
+    }
+  } catch (e) {
+    console.log('[Resume] 读取会话失败:', e);
+  }
+}
+
+// 关闭续聊横幅
+function closeResumeBanner() {
+  const banner = document.getElementById('resume-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+// 继续对话
+function resumeChat() {
+  try {
+    const session = JSON.parse(localStorage.getItem('chatSession') || '{}');
+    if (session.familyId) {
+      state.familyId = session.familyId;
+      // 恢复已收集的消息
+      if (session.messages && session.messages.length > 0) {
+        state.messages = session.messages;
+        // 重新渲染消息历史
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        // 添加初始欢迎消息
+        const welcomeMsg = document.createElement('div');
+        welcomeMsg.className = 'msg msg-ai';
+        welcomeMsg.innerHTML = `
+          <div class="msg-label">寻根</div>
+          <div class="bubble">你好，我来帮你记录你的家族故事。<br><br>您这辈子最难忘的一个地方是哪里？为什么？</div>
+        `;
+        container.appendChild(welcomeMsg);
+        // 恢复历史消息
+        session.messages.forEach(msg => {
+          addMessage(msg.role, msg.content);
+        });
+      }
+      // 关闭横幅
+      closeResumeBanner();
+      console.log('[Resume] 已恢复会话 familyId=', session.familyId);
+    }
+  } catch (e) {
+    console.log('[Resume] 恢复会话失败:', e);
+  }
+}
+
+// 保存对话状态到 localStorage
+function saveChatSession() {
+  try {
+    if (state.messages.length > 0 && state.familyId) {
+      const lastMsg = state.messages[state.messages.length - 1];
+      const session = {
+        familyId: state.familyId,
+        lastPrompt: lastMsg.role === 'assistant' ? lastMsg.content : '等待用户回复',
+        lastUserInput: state.messages.filter(m => m.role === 'user').pop()?.content || '',
+        messages: state.messages,
+        lastActiveTime: new Date().toISOString()
+      };
+      localStorage.setItem('chatSession', JSON.stringify(session));
+      console.log('[Session] 已保存对话状态');
+    }
+  } catch (e) {
+    console.log('[Session] 保存失败:', e);
+  }
+}
+
 // ── 初始化 ───────────────────────────────────────────────────
 // v4 使用 AMapLoader 异步加载，initMap 内部处理加载失败的降级
 window.addEventListener('load', () => {
   initMap();
+  checkResumeChat();  // 检查是否有未完成的对话
 });
 
 // ============================================================
