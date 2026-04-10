@@ -1,2 +1,26 @@
 [    8522ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3005/favicon.ico:0
 [    8553ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/mobile-chat.html:0
+[ 4351289ms] Identifier 'migrations' has already been declared
+[ 4351316ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4383047ms] Identifier 'migrations' has already been declared
+[ 4383050ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4407629ms] Identifier 'migrations' has already been declared
+[ 4407651ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4443557ms] Identifier 'migrations' has already been declared
+[ 4443560ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4488714ms] Identifier 'migrations' has already been declared
+[ 4488722ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4720567ms] [LOG] [story-timeline] URL familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:487
+[ 4720571ms] [LOG] [story-timeline] 最终 familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:528
+[ 4720571ms] [LOG] [story-timeline] sessionStorage 所有 keys: [] @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:531
+[ 4720573ms] [LOG] [story-timeline] sessionStorage pending_chat_data: null @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:532
+[ 4720574ms] [LOG] [story-timeline] loadTimeline 开始，familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:536
+[ 4720611ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 4721371ms] [LOG] [story-timeline] renderTimeline 接收到的数据: {success: true, familyName: 本人的家族, paths: Array(10), persons: Array(7), historicalEvents: Array(4)} @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:630
+[ 6391188ms] [LOG] [story-timeline] URL familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:502
+[ 6391190ms] [LOG] [story-timeline] 最终 familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:543
+[ 6391191ms] [LOG] [story-timeline] sessionStorage 所有 keys: [pending_map_data] @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:546
+[ 6391193ms] [LOG] [story-timeline] sessionStorage pending_chat_data: null @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:547
+[ 6391194ms] [LOG] [story-timeline] loadTimeline 开始，familyId: 1df5a6b8-a833-445d-803c-8afdb6320492 @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:551
+[ 6391211ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:0
+[ 6392016ms] [LOG] [story-timeline] renderTimeline 接收到的数据: {success: true, familyName: 本人的家族, paths: Array(10), persons: Array(7), historicalEvents: Array(4)} @ http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492:645

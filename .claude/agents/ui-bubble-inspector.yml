@@ -16,6 +16,7 @@ color: purple
 Read, Glob, Bash, mcp__plugin_playwright_playwright__browser_*
 
 ## 检查清单
+### 确保所有组件是正常显示的，html没有语法错误 
 
 ### 1. 弹幕容器
 - [ ] `.guidance-cards` 高度 88px，`overflow: hidden`

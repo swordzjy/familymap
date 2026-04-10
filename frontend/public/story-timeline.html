@@ -24,246 +24,291 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 /* 顶部导航 */
 .nav-bar{
   position:absolute;top:0;left:0;right:0;z-index:100;
-  padding:calc(8px + env(safe-area-inset-top)) 16px 8px;
+  padding:calc(6px + env(safe-area-inset-top)) 16px 6px;
   background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--mist4);
   display:flex;align-items:center;justify-content:space-between;
 }
 .nav-title{
-  font-family:var(--serif);font-size:17px;font-weight:400;
+  font-family:var(--serif);font-size:15px;font-weight:500;
   color:var(--cream);letter-spacing:0.05em;
 }
 .nav-subtitle{
-  font-size:12px;color:var(--mist2);
+  font-size:10px;color:var(--mist2);
   font-family:var(--mono);
+  font-weight:500;
 }
 
 /* 内容区 */
 .content{
   position:absolute;top:0;left:0;right:0;bottom:0;
-  padding-top:calc(50px + env(safe-area-inset-top));
-  padding-bottom:calc(120px + env(safe-area-inset-bottom));
+  padding-top:calc(52px + env(safe-area-inset-top));
+  padding-bottom:calc(80px + env(safe-area-inset-bottom));
   overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
 .content::-webkit-scrollbar{display:none;}
 
 /* 家族信息卡片 */
 .family-card{
-  margin:16px;
+  margin:12px;
   background:linear-gradient(135deg, var(--ink1) 0%, var(--ink0) 100%);
   border:1px solid var(--mist4);
-  border-radius:16px;
-  padding:20px;
+  border-radius:12px;
+  padding:14px 16px;
   position:relative;
   overflow:hidden;
 }
 .family-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(90deg, var(--mist3), var(--gold), var(--mist3));
 }
 .family-name{
-  font-family:var(--serif);font-size:22px;font-weight:400;
-  color:var(--cream);margin-bottom:6px;
+  font-family:var(--serif);font-size:18px;font-weight:500;
+  color:var(--cream);margin-bottom:10px;
   letter-spacing:0.05em;
 }
-.family-meta{
-  display:flex;gap:12px;flex-wrap:wrap;
-  font-size:12px;color:var(--mist2);
-  font-family:var(--mono);
+.family-name.editable-field{
+  cursor:pointer;
+  border-bottom:1px dashed transparent;
+  transition:all 0.2s;
+  display:inline-block;
 }
-.family-meta span{
-  display:flex;align-items:center;gap:4px;
+.family-name.editable-field:hover{
+  border-bottom-color:var(--gold);
 }
-.family-meta span::before{
-  content:'';width:4px;height:4px;border-radius:50%;
-  background:var(--gold);
+.family-name.editable-field[contenteditable="true"]{
+  border-bottom:1px solid var(--gold);
+  outline:none;
+  padding-bottom:2px;
 }
-
-/* 时间线 */
-.timeline{
-  position:relative;
-  padding:20px 0 10px 70px;
+/* 统计数字 - 鲜亮色彩 */
+.stats-row{
+  display:flex;gap:16px;flex-wrap:wrap;
 }
-/* 时间轴线 */
-.timeline::before{
-  content:'';position:absolute;left:24px;top:0;bottom:0;
-  width:2px;
-  background:linear-gradient(var(--mist4),var(--gold) 30%,var(--gold) 70%,var(--mist4));
-}
-
-/* 时间线事件 */
-.timeline-item{
-  position:relative;
-  margin-bottom:24px;
-  animation:slideIn 0.4s ease;
-}
-@keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
-
-/* 时间点 */
-.timeline-dot{
-  position:absolute;left:-54px;top:0;
-  width:16px;height:16px;border-radius:50%;
-  background:var(--ink0);
-  border:2px solid var(--gold);
-  z-index:1;
-}
-.timeline-item.incomplete .timeline-dot{
-  border-color:var(--mist3);
-  background:var(--ink2);
-}
-
-/* 事件卡片 */
-.event-card{
-  background:var(--ink1);
-  border:1px solid var(--mist4);
-  border-radius:12px;
-  padding:16px;
-}
-.event-card.complete{
-  border-left:4px solid var(--gold);
-}
-.event-card.incomplete{
-  border-left:4px solid var(--mist3);
-  background:var(--ink0);
-}
-
-/* 年份标签 */
-.event-year{
-  display:inline-flex;align-items:center;gap:6px;
-  font-family:var(--mono);
-  font-size:12px;
-  font-weight:500;
-  color:var(--gold);
-  background:rgba(200,169,110,0.1);
-  padding:4px 10px;
-  border-radius:12px;
-  margin-bottom:10px;
-  letter-spacing:0.05em;
-}
-.event-year::before{
-  content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);
-}
-.event-card.incomplete .event-year{
-  color:var(--mist2);
-  background:var(--mist3);
-}
-.event-card.incomplete .event-year::before{background:var(--mist2);}
-
-/* 编辑图标 */
-.edit-icon {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  opacity: 0.4;
-  margin-left: 6px;
-  transition: opacity 0.2s;
-}
-.edit-icon:hover {
-  opacity: 0.8;
-}
-.edit-icon svg {
-  stroke: var(--mist);
-}
-
-/* 人物 */
-.event-person{
-  font-family:var(--serif);
-  font-size:16px;
-  font-weight:400;
-  color:var(--cream);
-  margin-bottom:8px;
-}
-
-/* 地点路线 */
-.event-route{
-  display:flex;align-items:center;gap:8px;
-  font-size:13px;
-  color:var(--mist);
-  margin-bottom:8px;
-  padding:8px 10px;
-  background:var(--ink0);
+.stat-item{
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 14px;
+  background:rgba(200,169,110,0.08);
+  border:1px solid rgba(200,169,110,0.2);
   border-radius:8px;
+  min-width:70px;
 }
-.event-route-arrow{
+.stat-value{
+  font-family:var(--mono);
+  font-size:22px;
+  font-weight:700;
+  color:var(--gold);
+  line-height:1;
+}
+.stat-label{
+  font-size:10px;
+  color:var(--mist2);
+  margin-top:4px;
+  white-space:nowrap;
+}
+.stat-item.complete{
+  background:rgba(62,201,160,0.1);
+  border-color:rgba(62,201,160,0.3);
+}
+.stat-item.complete .stat-value{
+  color:var(--teal);
+}
+.stat-item.incomplete{
+  background:rgba(224,114,88,0.1);
+  border-color:rgba(224,114,88,0.3);
+}
+.stat-item.incomplete .stat-value{
+  color:var(--coral);
+}
+
+/* 表格布局时间线 */
+.timeline-table{
+  width:100%;
+  border-collapse:collapse;
+  margin:8px 0;
+}
+.timeline-table thead th{
+  position:sticky;
+  top:52px;
+  background:var(--ink1);
+  color:var(--gold);
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:600;
+  padding:8px 12px;
+  border-bottom:2px solid var(--gold);
+  z-index:10;
+  text-align:left;
+  letter-spacing:0.03em;
+}
+.timeline-table td{
+  padding:0;
+  border-bottom:1px solid var(--mist4);
+  vertical-align:top;
+}
+
+/* 第一列：人名（固定宽度） */
+.col-person{
+  width:140px;
+  font-family:var(--serif);
+  font-size:14px;
+  font-weight:500;
+  color:var(--cream);
+  white-space:nowrap;
+  padding:10px 12px;
+  background:var(--ink1);
+}
+.person-wrapper{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.person-gen-badge{
+  font-size:10px;
+  color:var(--gold);
+  font-family:var(--mono);
+  background:rgba(200,169,110,0.12);
+  padding:2px 6px;
+  border-radius:4px;
+  font-weight:600;
+}
+
+/* 第二列：记录容器 */
+.col-records{
+  padding:0;
+}
+.records-wrapper{
+  display:flex;
+  flex-direction:column;
+}
+
+/* 单条记录行 */
+.record-row{
+  display:grid;
+  grid-template-columns:70px 1fr 1fr auto;
+  gap:12px;
+  padding:10px 12px;
+  transition:background 0.2s;
+}
+.record-row:hover{
+  background:var(--ink0);
+}
+
+/* 记录行：时间 */
+.record-year{
+  font-family:var(--mono);
+  font-size:13px;
+  font-weight:700;
+  color:var(--gold);
+}
+
+/* 记录行：路线 */
+.record-route{
+  font-size:12px;
+  color:var(--mist);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.record-route-arrow{
   color:var(--gold);
   font-weight:bold;
   font-family:var(--mono);
+  font-size:11px;
 }
-.event-card.incomplete .event-route{
+
+/* 记录行：事件 */
+.record-event{
+  font-size:12px;
+  color:var(--mist2);
+  line-height:1.5;
+  white-space:normal;
+}
+
+/* 编辑按钮 */
+.edit-icon-btn{
+  cursor:pointer;
+  opacity:0.4;
+  transition:opacity 0.2s;
+  padding:4px;
+  display:flex;
+  align-items:center;
+}
+.edit-icon-btn:hover{
+  opacity:1;
+}
+
+/* 可编辑字段 */
+.editable-field{
+  cursor:pointer;
+  border-bottom:1px dashed transparent;
+  transition:all 0.2s;
+  min-height:20px;
+}
+.editable-field:hover{
+  border-bottom-color:var(--gold);
+  background:rgba(200,169,110,0.05);
+}
+.editable-field[contenteditable="true"]{
+  border-bottom:1px solid var(--gold);
+  background:var(--ink1);
+  outline:none;
+  padding:2px 4px;
+}
+
+/* 保存状态提示 */
+.save-status-toast{
+  position:fixed;
+  top:calc(70px + env(safe-area-inset-top));
+  right:16px;
+  padding:10px 16px;
+  background:var(--ink1);
+  border:1px solid var(--mist4);
+  border-radius:8px;
+  font-size:12px;
+  font-family:var(--mono);
+  color:var(--mist);
+  opacity:0;
+  transition:opacity 0.3s;
+  z-index:1000;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+}
+.save-status-toast.show{
+  opacity:1;
+}
+.save-status-toast.saving{
+  border-color:var(--gold);
+  color:var(--gold);
+}
+.save-status-toast.saved{
+  border-color:var(--teal);
+  color:var(--teal);
+}
+.save-status-toast.error{
+  border-color:var(--coral);
+  color:var(--coral);
+}
+
+/* 不完整记录 */
+.record-row.incomplete{
+  background:var(--ink0);
+}
+.record-row.incomplete .record-year,
+.record-row.incomplete .record-route,
+.record-row.incomplete .record-event{
   color:var(--mist2);
 }
 
-/* 事件描述 */
-.event-desc{
-  font-size:13px;
-  color:var(--mist);
-  line-height:1.7;
-  padding-top:8px;
-  border-top:1px solid var(--mist4);
-  margin-top:8px;
-}
-
-/* 缺失信息提示 */
-.missing-info{
-  margin-top:10px;
-  padding:10px 12px;
-  background:rgba(224,114,88,0.1);
-  border:1px solid rgba(224,114,88,0.3);
-  border-radius:8px;
-  font-size:11px;
-  color:var(--coral);
-  line-height:1.5;
-}
-
-/* 编辑表单 */
-.edit-form{
-  margin-top:12px;
-  padding:12px;
-  background:var(--ink0);
-  border:1px solid var(--mist4);
-  border-radius:8px;
-}
-.edit-form-row{
-  display:flex;flex-direction:column;gap:4px;
-  margin-bottom:10px;
-}
-.edit-form-row:last-child{margin-bottom:0;}
-.edit-form-label{
-  font-size:11px;color:var(--mist2);font-family:var(--mono);
-}
-.edit-form-input{
-  width:100%;
-  padding:8px 10px;
-  background:var(--ink1);
-  border:1px solid var(--mist4);
-  border-radius:6px;
-  color:var(--cream);
-  font-size:13px;
-  font-family:var(--sans);
-  outline:none;
-  transition:border-color 0.2s;
-}
-.edit-form-input:focus{border-color:var(--gold);}
-.edit-form-actions{
-  display:flex;gap:8px;margin-top:10px;
-}
-.edit-form-btn{
-  flex:1;
-  padding:8px 12px;
-  border-radius:6px;
-  font-size:12px;
-  font-weight:500;
-  cursor:pointer;
-  border:none;
-}
-.edit-form-btn.save{
-  background:var(--gold);
-  color:var(--night);
-}
-.edit-form-btn.cancel{
-  background:transparent;
-  border:1px solid var(--mist4);
-  color:var(--mist);
+/* 移动端适配 */
+@media (max-width:768px){
+  .record-row{
+    grid-template-columns:60px 1fr;
+    gap:8px;
+  }
+  .record-event{
+    grid-column:1 / -1;
+    margin-top:8px;
+  }
 }
 
 /* 原始聊天内容 */
@@ -290,16 +335,16 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 /* 底部操作栏 */
 .action-bar{
   position:absolute;bottom:0;left:0;right:0;
-  padding:10px 16px calc(8px + env(safe-area-inset-bottom));
+  padding:8px 12px calc(6px + env(safe-area-inset-bottom));
   background:rgba(9,8,6,0.95);backdrop-filter:blur(12px);
   border-top:1px solid var(--mist4);
   display:flex;gap:10px;
 }
 .btn{
   flex:1;
-  padding:12px 16px;
-  border-radius:10px;
-  font-size:14px;
+  padding:10px 14px;
+  border-radius:8px;
+  font-size:13px;
   font-weight:500;
   text-align:center;
   text-decoration:none;
@@ -317,6 +362,10 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   color:var(--mist);
 }
 .btn-secondary:active{background:var(--mist3);}
+
+/* 缺失信息提示 - 已删除，改用 incomplete 样式 */
+
+/* 编辑表单 - 已删除，改用行内编辑样式 */
 
 /* 加载状态 */
 .loading{
@@ -346,42 +395,43 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
 /* 图例 */
 .legend{
-  display:flex;gap:12px;justify-content:center;
-  padding:12px 16px;
+  display:flex;gap:10px;justify-content:center;
+  padding:8px 16px;
   border-bottom:1px solid var(--mist4);
 }
 .legend-item{
-  display:flex;align-items:center;gap:6px;
-  font-size:11px;color:var(--mist2);
+  display:flex;align-items:center;gap:5px;
+  font-size:10px;color:var(--mist2);
+  font-family:var(--mono);
 }
 .legend-dot{
-  width:8px;height:8px;border-radius:50%;
+  width:6px;height:6px;border-radius:50%;
 }
 
 /* 家族成员列表 */
 .members-section{
-  margin:24px 16px 16px;
-  padding-top:20px;
+  margin:16px 12px 12px;
+  padding-top:16px;
   border-top:1px solid var(--mist4);
 }
 .section-title{
-  font-family:var(--serif);font-size:16px;font-weight:400;
-  color:var(--cream);margin-bottom:16px;
+  font-family:var(--serif);font-size:14px;font-weight:500;
+  color:var(--cream);margin-bottom:12px;
   display:flex;justify-content:space-between;align-items:center;
 }
 .section-subtitle{
-  font-family:var(--mono);font-size:12px;color:var(--mist2);
+  font-family:var(--mono);font-size:11px;color:var(--mist2);
 }
 .members-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));
-  gap:12px;
+  grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));
+  gap:10px;
 }
 .member-card{
   background:linear-gradient(135deg, var(--ink1) 0%, var(--ink0) 100%);
   border:1px solid var(--mist4);
-  border-radius:12px;
-  padding:14px;
+  border-radius:10px;
+  padding:12px;
   transition:all 0.2s ease;
   position:relative;
   overflow:hidden;
@@ -399,35 +449,37 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 }
 .member-header{
   display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:8px;
+  margin-bottom:6px;
 }
 .member-gen{
-  font-size:10px;color:var(--gold);font-family:var(--mono);
+  font-size:9px;color:var(--gold);font-family:var(--mono);
   background:rgba(200,169,110,0.1);
-  padding:2px 6px;border-radius:4px;
+  padding:2px 5px;border-radius:4px;
+  font-weight:600;
 }
 .member-role{
-  font-size:10px;color:var(--mist2);font-family:var(--mono);
+  font-size:9px;color:var(--mist2);font-family:var(--mono);
 }
 .member-name{
-  font-family:var(--serif);font-size:15px;font-weight:500;
-  color:var(--cream);margin-bottom:8px;
-  letter-spacing:0.05em;
+  font-family:var(--serif);font-size:14px;font-weight:500;
+  color:var(--cream);margin-bottom:6px;
+  letter-spacing:0.03em;
 }
 .member-meta{
-  display:flex;flex-direction:column;gap:4px;
-  margin-bottom:10px;
+  display:flex;flex-direction:column;gap:3px;
+  margin-bottom:8px;
 }
 .member-birth, .member-birthplace{
-  font-size:11px;color:var(--mist2);font-family:var(--mono);
+  font-size:10px;color:var(--mist2);font-family:var(--mono);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .member-status{
-  display:flex;gap:6px;flex-wrap:wrap;
+  display:flex;gap:4px;flex-wrap:wrap;
 }
 .status-badge{
-  font-size:10px;padding:3px 8px;border-radius:4px;
+  font-size:9px;padding:2px 6px;border-radius:4px;
   font-family:var(--mono);
+  font-weight:600;
 }
 .status-badge.has-data{
   background:rgba(62,201,160,0.15);
@@ -482,16 +534,20 @@ const API_BASE = '/amapapi';
 // 全局变量存储当前加载的数据
 let currentData = null;
 
-// 从多个来源获取 familyId
+// 从多个来源获取 familyId（优先级：URL > localStorage > sessionStorage）
 function getFamilyId() {
-  // 1. 检查 URL 参数
+  // 1. 优先使用 URL 参数（最可靠，从地图按钮跳转时携带）
   const params = new URLSearchParams(window.location.search);
   const urlFamilyId = params.get('familyId');
   console.log('[story-timeline] URL familyId:', urlFamilyId);
 
-  if (urlFamilyId) return urlFamilyId;
+  if (urlFamilyId) {
+    // 清除可能冲突的 sessionStorage 数据
+    sessionStorage.removeItem('pending_chat_data');
+    return urlFamilyId;
+  }
 
-  // 2. 检查 localStorage
+  // 2. 其次使用 localStorage（断点续聊场景）
   try {
     const saved = localStorage.getItem('family_migration_chat_state');
     if (saved) {
@@ -503,13 +559,17 @@ function getFamilyId() {
     console.warn('[story-timeline] localStorage 读取失败:', e);
   }
 
-  // 3. 检查 sessionStorage（从聊天页面跳过来时可能保存了临时数据）
+  // 3. 最后检查 sessionStorage（仅当直接从聊天页面跳转且未携带 URL 参数时）
   try {
     const tempData = sessionStorage.getItem('pending_chat_data');
-    console.log('[story-timeline] sessionStorage pending_chat_data:', tempData ? JSON.parse(tempData) : 'null');
+    console.log('[story-timeline] sessionStorage pending_chat_data:', tempData ? '存在' : 'null');
     if (tempData) {
       const parsed = JSON.parse(tempData);
-      if (parsed.familyId) return parsed.familyId;
+      if (parsed.familyId) {
+        // 使用后立即清除，避免下次访问时数据混乱
+        sessionStorage.removeItem('pending_chat_data');
+        return parsed.familyId;
+      }
     }
   } catch (e) {
     console.warn('[story-timeline] sessionStorage 读取失败:', e);
@@ -620,7 +680,7 @@ async function loadTimeline() {
 // 页面加载时加载数据
 loadTimeline();
 
-// 渲染时间线
+// 渲染时间线 - 表格布局：第一列人名，第二列时间 + 路线 + 事件
 function renderTimeline(data) {
   console.log('[story-timeline] renderTimeline 接收到的数据:', data);
 
@@ -630,32 +690,20 @@ function renderTimeline(data) {
   const content = document.getElementById('content');
   document.getElementById('loading').style.display = 'none';
 
-  // 家族信息 - 注意：extract API 返回的是 migrations，不是 paths
+  // 家族信息
   const familyName = data.family_name || data.familyName || '您的家族';
   const personCount = data.persons?.length || 0;
   const migrationCount = (data.migrations || data.paths)?.length || 0;
 
-  // 读取原始聊天内容
-  let rawChatText = '';
-  try {
-    const tempData = sessionStorage.getItem('pending_chat_data');
-    if (tempData) {
-      const parsed = JSON.parse(tempData);
-      rawChatText = parsed.rawChatText || '';
-    }
-  } catch (e) {
-    console.warn('读取原始聊天内容失败:', e);
-  }
-
-  // 计算完整和待补充的事件数量
+  // 构建 personMap
   const personMap = {};
   (data.persons || []).forEach(p => {
     personMap[p.internal_id || p.id] = p;
   });
 
-  // 统一使用 migrations 或 paths
   const migrations = data.migrations || data.paths || [];
 
+  // 计算完整和待补充的事件数量
   let completeCount = 0;
   let incompleteCount = 0;
   migrations.forEach(path => {
@@ -669,143 +717,174 @@ function renderTimeline(data) {
 
   document.getElementById('nav-subtitle').textContent = `${personCount} 位家人 · ${migrationCount} 段迁徙`;
 
-  // 家族卡片
+  // 家族卡片 - 统计数字鲜亮突出
   let html = `
     <div class="family-card">
-      <div class="family-name">${familyName}</div>
-      <div class="family-meta">
-        <span>${personCount} 位家人</span>
-        <span>${migrationCount} 段迁徙</span>
-        <span style="color:var(--gold);">${completeCount} 段完整</span>
-        ${incompleteCount > 0 ? `<span style="color:var(--coral);">${incompleteCount} 段待补充</span>` : ''}
+      <div class="family-name editable-field"
+           data-field="family_name"
+           contenteditable="true"
+           onblur="autoSaveFamilyName(this)">${familyName}</div>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-value">${personCount}</div>
+          <div class="stat-label">位家人</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${migrationCount}</div>
+          <div class="stat-label">段迁徙</div>
+        </div>
+        <div class="stat-item complete">
+          <div class="stat-value">${completeCount}</div>
+          <div class="stat-label">完整</div>
+        </div>
+        ${incompleteCount > 0 ? `
+        <div class="stat-item incomplete">
+          <div class="stat-value">${incompleteCount}</div>
+          <div class="stat-label">待补充</div>
+        </div>` : ''}
       </div>
     </div>
-    <div class="timeline" id="timeline"></div>
+
+    <!-- 表格布局 -->
+    <table class="timeline-table">
+      <thead>
+        <tr>
+          <th class="col-person">人名</th>
+          <th class="col-records">
+            <span style="font-weight:400;color:var(--mist2);">时间 · 迁徙路线 · 事件</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="timeline-body"></tbody>
+    </table>
   `;
 
   content.innerHTML = html;
 
-  const timeline = document.getElementById('timeline');
+  const tbody = document.getElementById('timeline-body');
 
-  // 按时间排序迁徙事件 - 使用 migrations 或 paths
-  const sortedPaths = [...migrations].sort((a, b) =>
-    (a.sequence_order || 0) - (b.sequence_order || 0)
-  );
+  // 按人分组迁徙记录
+  const personMigrations = new Map();
+  migrations.forEach(path => {
+    const personId = path.person_internal_id || path.person_id;
+    if (!personMigrations.has(personId)) {
+      personMigrations.set(personId, []);
+    }
+    personMigrations.get(personId).push(path);
+  });
 
-  // 迁徙原因类型映射
-  const reasonTypeMap = {
-    study: '求学',
-    work: '工作',
-    family: '家庭',
-    assignment: '分配',
-    war: '战乱',
-    disaster: '灾荒',
-    unknown: '其他',
+  // 渲染表格 - 代际标签
+  const genLabelMap = {
+    0: '本人',
+    1: '父辈',
+    2: '祖辈',
+    3: '曾祖辈',
+    4: '高祖辈',
+    '-1': '子辈',
+    '-2': '孙辈',
   };
 
-  // 渲染每个事件
-  sortedPaths.forEach((path, idx) => {
-    const person = personMap[path.person_internal_id] || personMap[path.person_id];
-    const isComplete = isPathComplete(path, person);
-    const reasonType = reasonTypeMap[path.reason_type] || path.reason_type || '';
-    const personName = person?.name && person.name !== '未知' ? person.name : '';
-    const personRole = person?.role || '';
-    const pathInternalId = path.internal_id || `path_${idx}`;
+  // 排序人物：本人优先，然后按辈分从高到低
+  const sortedPersons = [...(data.persons || [])].sort((a, b) => {
+    if (a.generation === 0 && b.generation !== 0) return -1;
+    if (b.generation === 0 && a.generation !== 0) return 1;
+    return (b.generation || 0) - (a.generation || 0);
+  });
 
-    const item = document.createElement('div');
-    item.className = `timeline-item ${isComplete ? '' : 'incomplete'}`;
+  // 每个人内部的迁徙记录按时间排序
+  sortedPersons.forEach(person => {
+    const personId = person.internal_id || person.id;
+    const paths = personMigrations.get(personId) || [];
+    // 按时间从古到今排序
+    paths.sort((a, b) => {
+      if (!a.year && !b.year) return 0;
+      if (!a.year) return 1;
+      if (!b.year) return -1;
+      return parseInt(a.year) - parseInt(b.year);
+    });
+  });
 
-    // 编辑表单 HTML（所有事件都可以编辑）
-    const editFormHtml = `
-      <div class="edit-form" id="edit-form-${pathInternalId}" style="display:none;">
-        <div style="font-size:12px;color:var(--gold);margin-bottom:10px;font-family:var(--mono);">编辑信息</div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">人物称呼</label>
-          <input class="edit-form-input" id="edit-role-${pathInternalId}" value="${personRole || ''}" placeholder="例如：父亲" />
+  sortedPersons.forEach(person => {
+    const personId = person.internal_id || person.id;
+    const paths = personMigrations.get(personId) || [];
+
+    if (paths.length === 0) return; // 没有迁徙记录的人不显示
+
+    const genLabel = genLabelMap[person.generation] || `第${person.generation}代`;
+    const personName = person?.name && person.name !== '未知' ? person.name : person?.role || '未知';
+
+    // 每个人需要两行：第一行显示人名，第二行显示所有记录
+    const personRow = document.createElement('tr');
+    personRow.className = 'person-group';
+    personRow.dataset.personId = personId;
+
+    personRow.innerHTML = `
+      <td class="col-person" rowspan="2">
+        <div class="person-wrapper">
+          <span class="editable-field"
+                data-field="person_name"
+                data-person-id="${personId}"
+                contenteditable="true"
+                onblur="autoSavePersonName(this, '${personId}')">${personName}</span>
+          <span class="person-gen-badge">${genLabel}</span>
         </div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">人物姓名</label>
-          <input class="edit-form-input" id="edit-name-${pathInternalId}" value="${personName || ''}" placeholder="例如：王志强" />
-        </div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">年份</label>
-          <input class="edit-form-input" id="edit-year-${pathInternalId}" value="${path.year || ''}" placeholder="例如：1965" />
-        </div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">出发地</label>
-          <input class="edit-form-input" id="edit-from-${pathInternalId}" value="${path.from_place || ''}" placeholder="例如：黑龙江省双城县" />
-        </div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">目的地</label>
-          <input class="edit-form-input" id="edit-to-${pathInternalId}" value="${path.to_place || ''}" placeholder="例如：北京市" />
-        </div>
-        <div class="edit-form-row">
-          <label class="edit-form-label">原因描述</label>
-          <input class="edit-form-input" id="edit-reason-${pathInternalId}" value="${path.reason || ''}" placeholder="例如：考入清华大学求学" />
-        </div>
-        <div class="edit-form-actions">
-          <button class="edit-form-btn save" onclick="savePathEdit('${pathInternalId}', '${path.person_internal_id || path.person_id}')">保存</button>
-          <button class="edit-form-btn cancel" onclick="cancelPathEdit('${pathInternalId}')">取消</button>
-        </div>
-      </div>
+      </td>
     `;
+    tbody.appendChild(personRow);
 
-    // 不完整事件显示缺失信息和原始聊天内容
-    let incompleteHtml = '';
-    if (!isComplete) {
-      let relatedChatText = '';
-      if (rawChatText) {
-        const lines = rawChatText.split('\n');
-        const keywords = [path.from_place, path.to_place, path.year, path.reason].filter(Boolean);
-        if (keywords.length > 0) {
-          const relatedLines = lines.filter(line => keywords.some(kw => line.includes(kw)));
-          relatedChatText = relatedLines.slice(0, 5).join('\n');
-        }
-      }
+    // 记录容器行
+    const recordsRow = document.createElement('tr');
+    recordsRow.className = 'col-records';
+    const recordsWrapper = document.createElement('div');
+    recordsWrapper.className = 'records-wrapper';
 
-      const relatedChatHtml = relatedChatText ? `
-        <div class="raw-chat-content-title">相关聊天内容</div>
-        <div class="raw-chat-content">${relatedChatText.replace(/\n/g, '<br>')}</div>
-      ` : '';
+    // 渲染每个人的迁徙记录（已按时间排序）
+    paths.forEach(path => {
+      const isComplete = isPathComplete(path, person);
+      const pathId = path.internal_id || path.id;
+      const pathIndex = path.sequence_order || 0;
 
-      incompleteHtml = `
-        <div class="missing-info" style="cursor:pointer;" onclick="toggleEditForm('${pathInternalId}')">
-          ${getMissingInfo(path, person)}
+      const recordRow = document.createElement('div');
+      recordRow.className = `record-row ${isComplete ? 'complete' : 'incomplete'}`;
+      recordRow.dataset.pathId = pathId;
+
+      recordRow.innerHTML = `
+        <div class="record-year editable-field"
+             data-field="year"
+             data-path-id="${pathId}"
+             contenteditable="true"
+             onblur="autoSave(this)">${path.year || '?'}</div>
+        <div class="record-route">
+          <span class="editable-field"
+                data-field="from_place"
+                data-path-id="${pathId}"
+                contenteditable="true"
+                onblur="autoSave(this)">${path.from_place || '未知'}</span>
+          <span class="record-route-arrow">→</span>
+          <span class="editable-field"
+                data-field="to_place"
+                data-path-id="${pathId}"
+                contenteditable="true"
+                onblur="autoSave(this)">${path.to_place || '未知'}</span>
         </div>
-        ${relatedChatHtml}
+        <div class="record-event editable-field"
+             data-field="reason"
+             data-path-id="${pathId}"
+             contenteditable="true"
+             onblur="autoSave(this)">${path.reason || '-'}</div>
+        <span class="edit-icon-btn" onclick="deletePath('${pathId}')" title="删除">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </span>
       `;
-    }
 
-    // 人物名称后显示编辑图标
-    const editIconHtml = `
-      <span class="edit-icon" onclick="toggleEditForm('${pathInternalId}')" title="编辑">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </span>
-    `;
+      recordsWrapper.appendChild(recordRow);
+    });
 
-    item.innerHTML = `
-      <div class="timeline-dot"></div>
-      <div class="event-card ${isComplete ? 'complete' : 'incomplete'}">
-        <div class="event-year">${path.year || '时间未知'}${reasonType ? `<span style="opacity:0.6;margin-left:8px;">· ${reasonType}</span>` : ''}</div>
-        <div class="event-person">
-          ${personRole || '未知'}${personName && personName !== '未知' ? ' · ' + personName : ''}${person?.generation ? `<span style="font-size:12px;opacity:0.6;margin-left:6px;">第${person.generation}代</span>` : ''}${editIconHtml}
-        </div>
-        ${path.from_place && path.to_place ? `
-          <div class="event-route">
-            <span>${path.from_place}</span>
-            <span class="event-route-arrow">→</span>
-            <span>${path.to_place}</span>
-          </div>
-        ` : ''}
-        <div class="event-desc">${path.reason || path.event_desc || '事件详情待补充'}</div>
-        ${incompleteHtml}
-        ${editFormHtml}
-      </div>
-    `;
-    timeline.appendChild(item);
+    recordsRow.appendChild(recordsWrapper);
+    tbody.appendChild(recordsRow);
   });
 
   // ============================================
@@ -823,25 +902,15 @@ function renderTimeline(data) {
   content.appendChild(membersSection);
 
   // 按代际排序人物
-  const sortedPersons = [...(data.persons || [])].sort((a, b) => {
+  const sortedMembers = [...(data.persons || [])].sort((a, b) => {
     const genDiff = (b.generation || 0) - (a.generation || 0);
     if (genDiff !== 0) return genDiff;
     return (a.birth_year || 9999) - (b.birth_year || 9999);
   });
 
-  // 统计各代人数
-  const genCount = {};
-  sortedPersons.forEach(p => {
-    const gen = p.generation || 0;
-    genCount[gen] = (genCount[gen] || 0) + 1;
-  });
-
   const membersGrid = document.getElementById('members-grid');
-  sortedPersons.forEach(person => {
-    const genLabel = person.generation === 0 ? '本人' :
-                     person.generation === 1 ? '父辈' :
-                     person.generation === 2 ? '祖辈' :
-                     person.generation === -1 ? '子辈' : `第${person.generation}代`;
+  sortedMembers.forEach(person => {
+    const genLabel = genLabelMap[person.generation] || `第${person.generation}代`;
 
     const hasMigration = migrations.some(m =>
       m.person_internal_id === person.internal_id || m.person_id === person.id
@@ -864,207 +933,230 @@ function renderTimeline(data) {
         ${person.birth_place ? `<span class="member-birthplace">${person.birth_place}</span>` : ''}
       </div>
       <div class="member-status">
-        ${hasMigration ? `<span class="status-badge has-data">有 ${migrationCount} 段迁徙</span>` : '<span class="status-badge no-data">无迁徙记录</span>'}
+        ${hasMigration ? `<span class="status-badge has-data">${migrationCount} 段迁徙</span>` : '<span class="status-badge no-data">无迁徙记录</span>'}
       </div>
     `;
     membersGrid.appendChild(memberCard);
   });
   // ============================================
 
-  // 显示操作栏
-  document.getElementById('action-bar').style.display = 'flex';
-
   // 保存数据到 sessionStorage 供地图页面使用
   sessionStorage.setItem('pending_map_data', JSON.stringify(data));
+
+  // 显示底部操作栏
+  const actionBar = document.getElementById('action-bar');
+  if (actionBar) actionBar.style.display = 'flex';
 }
 
 // 检查事件是否完整（时间、人物、地点齐全）
 function isPathComplete(path, person) {
-  // 有经纬度或地名都算完整
   const hasFrom = path.from_lng || path.from_place;
   const hasTo = path.to_lng || path.to_place;
-  return path.year &&
-         hasFrom &&
-         hasTo &&
-         (person?.role || person?.name);
+  return path.year && hasFrom && hasTo && (person?.role || person?.name);
 }
 
-// 获取缺失信息描述
-function getMissingInfo(path, person) {
-  const missing = [];
-  if (!path.year) missing.push('时间');
-  if (!path.from_lng && !path.from_place) missing.push('出发地');
-  if (!path.to_lng && !path.to_place) missing.push('目的地');
-  if (!person?.role && (!person?.name || person.name === '未知')) missing.push('人物');
+// 显示保存状态提示
+function showSaveStatus(status, message) {
+  // 移除旧的 toast
+  const oldToast = document.querySelector('.save-status-toast');
+  if (oldToast) oldToast.remove();
 
-  if (missing.length > 0) {
-    return `缺少：${missing.join('、')} —— 可在聊天中补充`;
-  }
-  return '信息待补充';
+  const toast = document.createElement('div');
+  toast.className = `save-status-toast ${status}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  // 显示
+  setTimeout(() => toast.classList.add('show'), 10);
+
+  // 3 秒后隐藏并移除
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
-// 切换编辑表单显示/隐藏
-function toggleEditForm(pathId) {
-  const form = document.getElementById(`edit-form-${pathId}`);
-  if (form) {
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-  }
+// 保存家族名
+function autoSaveFamilyName(element) {
+  const newValue = element.textContent.trim();
+  if (!newValue || !familyId) return;
+
+  console.log('[save-family] 保存家族名:', newValue);
+  showSaveStatus('saving', '保存中...');
+
+  fetch(`${API_BASE}/save-family-name/${familyId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ familyName: newValue })
+  })
+  .then(res => res.json())
+  .then(result => {
+    if (result.success) {
+      console.log('[save-family] 保存成功');
+      showSaveStatus('saved', '已保存');
+    } else {
+      throw new Error(result.error || '保存失败');
+    }
+  })
+  .catch(err => {
+    console.error('[save-family] 保存失败:', err);
+    showSaveStatus('error', '保存失败');
+    element.textContent = currentData?.familyName || newValue;
+  });
 }
 
-// 保存编辑
-function savePathEdit(pathId, personId) {
-  const year = document.getElementById(`edit-year-${pathId}`).value.trim();
-  const fromPlace = document.getElementById(`edit-from-${pathId}`).value.trim();
-  const toPlace = document.getElementById(`edit-to-${pathId}`).value.trim();
-  const reason = document.getElementById(`edit-reason-${pathId}`).value.trim();
-  const role = document.getElementById(`edit-role-${pathId}`).value.trim();
-  const name = document.getElementById(`edit-name-${pathId}`).value.trim();
+// 保存人名
+function autoSavePersonName(element, personId) {
+  const newValue = element.textContent.trim();
+  if (!newValue || !familyId) return;
 
-  console.log('[story-timeline] 保存编辑:', { pathId, personId, year, fromPlace, toPlace, reason, role, name });
+  console.log('[save-person] 保存人名:', { personId, newValue });
+  showSaveStatus('saving', '保存中...');
 
-  // 使用全局变量获取当前数据
-  if (!currentData) {
-    console.error('[story-timeline] 全局数据未加载');
-    alert('数据未加载，请刷新页面重试');
+  fetch(`${API_BASE}/save-person-name/${familyId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ personId, name: newValue })
+  })
+  .then(res => res.json())
+  .then(result => {
+    if (result.success) {
+      console.log('[save-person] 保存成功');
+      showSaveStatus('saved', '已保存');
+      // 更新本地数据
+      if (currentData && currentData.persons) {
+        const person = currentData.persons.find(p => (p.internal_id || p.id) === personId);
+        if (person) person.name = newValue;
+      }
+    } else {
+      throw new Error(result.error || '保存失败');
+    }
+  })
+  .catch(err => {
+    console.error('[save-person] 保存失败:', err);
+    showSaveStatus('error', '保存失败');
+    if (currentData && currentData.persons) {
+      const person = currentData.persons.find(p => (p.internal_id || p.id) === personId);
+      if (person) element.textContent = person.name || person.role;
+    }
+  });
+}
+
+// 自动保存（contenteditable blur 时触发）
+function autoSave(element) {
+  const field = element.dataset.field;
+  const pathId = element.dataset.pathId;
+  const newValue = element.textContent.trim();
+
+  if (!currentData || !pathId) {
+    console.error('[autoSave] 数据未加载或 pathId 缺失');
     return;
   }
 
   const migrations = currentData.migrations || currentData.paths || [];
   const persons = currentData.persons || [];
 
-  console.log('[story-timeline] 数据概览:', { migrationsCount: migrations.length, personsCount: persons.length });
-
-  // 找到对应的迁徙记录
-  let pathIndex = -1;
-  if (pathId.startsWith('path_')) {
-    const idx = parseInt(pathId.replace('path_', ''));
-    if (!isNaN(idx) && idx >= 0 && idx < migrations.length) {
-      pathIndex = idx;
-    }
-  }
-
+  const pathIndex = migrations.findIndex(p => (p.internal_id || p.id) === pathId);
   if (pathIndex === -1) {
-    pathIndex = migrations.findIndex(p => p.id === pathId);
-  }
-
-  if (pathIndex === -1) {
-    console.error('[story-timeline] 未找到迁徙记录，pathId:', pathId);
-    alert('未找到对应的迁徙记录，请刷新页面重试');
+    console.error('[autoSave] 未找到迁徙记录');
     return;
   }
 
   const path = migrations[pathIndex];
-
-  // 找到对应的人物记录
-  let person = null;
-  if (personId) {
-    let personIndex = persons.findIndex(p => p.id === personId);
-    if (personIndex === -1 && personId && typeof personId === 'string') {
-      personIndex = persons.findIndex(p => p.internal_id === personId);
-    }
-    if (personIndex === -1 && path.person_id) {
-      personIndex = persons.findIndex(p => p.id === path.person_id);
-    }
-    if (personIndex !== -1) {
-      person = persons[personIndex];
-    }
-  }
-
-  if (!person && path.person_id) {
-    person = persons.find(p => p.id === path.person_id);
-  }
+  const person = persons.find(p => (p.internal_id || p.id) === path.person_internal_id);
 
   if (!person) {
-    console.error('[story-timeline] 未找到人物记录');
-    alert('未找到对应的人物记录，请刷新页面重试');
+    console.error('[autoSave] 未找到人物记录');
     return;
   }
 
-  // 调用后端 API 保存到数据库
-  saveToDatabase(path, person, { year, fromPlace, toPlace, reason, role, name });
-}
+  // 构建更新数据
+  const updates = {
+    year: field === 'year' ? newValue : path.year,
+    fromPlace: field === 'from_place' ? newValue : path.from_place_raw,
+    toPlace: field === 'to_place' ? newValue : path.to_place_raw,
+    reason: field === 'reason' ? newValue : path.reason
+  };
 
-async function saveToDatabase(path, person, updates) {
-  const { year, fromPlace, toPlace, reason, role, name } = updates;
+  console.log('[autoSave] 自动保存:', { pathId, field, newValue });
+  showSaveStatus('saving', '保存中...');
 
-  console.log('[story-timeline] 调用保存 API:', {
-    familyId,
-    personId: person.id,
-    migrationId: path.id,
-    updates
-  });
-
-  try {
-    const response = await fetch(`${API_BASE}/save-edit/${familyId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        personId: person.id,
-        name: name || person.name,
-        role: role || person.role,
-        migrationId: path.id,
-        year: year || path.year,
-        fromPlace: fromPlace || path.from_place_raw,
-        toPlace: toPlace || path.to_place_raw,
-        reason: reason || path.reason
-      })
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
+  // 调用 API 保存
+  fetch(`${API_BASE}/save-edit/${familyId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      personId: person.id,
+      name: person.name,
+      role: person.role,
+      migrationId: path.id,
+      year: updates.year,
+      fromPlace: updates.fromPlace,
+      toPlace: updates.toPlace,
+      reason: updates.reason
+    })
+  })
+  .then(res => res.json())
+  .then(result => {
+    if (result.success) {
+      console.log('[autoSave] 保存成功');
+      // 更新本地数据
+      if (updates.year) path.year = updates.year;
+      if (updates.fromPlace) { path.from_place = updates.fromPlace; path.from_place_raw = updates.fromPlace; }
+      if (updates.toPlace) { path.to_place = updates.toPlace; path.to_place_raw = updates.toPlace; }
+      if (updates.reason) path.reason = updates.reason;
+      showSaveStatus('saved', '已保存');
+    } else {
       throw new Error(result.error || '保存失败');
     }
+  })
+  .catch(err => {
+    console.error('[autoSave] 保存失败:', err);
+    showSaveStatus('error', '保存失败：' + err.message);
+    // 恢复原文本
+    element.textContent = path[field] || path[`${field}_raw`] || '';
+  });
+}
 
-    console.log('[story-timeline] 保存成功');
+// 删除迁徙记录
+function deletePath(pathId) {
+  if (!confirm('确定要删除这条迁徙记录吗？此操作不可恢复。')) {
+    return;
+  }
 
-    // 更新全局数据
-    if (name) person.name = name;
-    if (role) person.role = role;
-    if (year) path.year = year;
-    if (fromPlace) { path.from_place = fromPlace; path.from_place_raw = fromPlace; }
-    if (toPlace) { path.to_place = toPlace; path.to_place_raw = toPlace; }
-    if (reason) path.reason = reason;
-
-    // 更新 sessionStorage（如果有）
-    try {
-      const tempData = sessionStorage.getItem('pending_chat_data');
-      if (tempData) {
-        const parsed = JSON.parse(tempData);
-        sessionStorage.setItem('pending_chat_data', JSON.stringify(parsed));
+  fetch(`${API_BASE}/migration/${pathId}`, {
+    method: 'DELETE'
+  })
+  .then(res => res.json())
+  .then(result => {
+    if (result.success) {
+      console.log('[deletePath] 删除成功:', pathId);
+      showSaveStatus('saved', '已删除');
+      // 从全局数据中移除
+      if (currentData && currentData.migrations) {
+        const idx = currentData.migrations.findIndex(p => (p.internal_id || p.id) === pathId);
+        if (idx !== -1) currentData.migrations.splice(idx, 1);
       }
-    } catch (e) {}
-
-    alert('保存成功！');
-
-    // 简单刷新：重新加载页面
-    window.location.reload();
-
-  } catch (err) {
-    console.error('[story-timeline] 保存失败:', err);
-    alert('保存失败：' + err.message);
-  }
+      // 重新渲染页面
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      throw new Error(result.error || '删除失败');
+    }
+  })
+  .catch(err => {
+    console.error('[deletePath] 删除失败:', err);
+    showSaveStatus('error', '删除失败：' + err.message);
+  });
 }
 
-// 取消编辑
-function cancelPathEdit(pathId) {
-  const form = document.getElementById(`edit-form-${pathId}`);
-  if (form) {
-    form.style.display = 'none';
-  }
-}
-
-// 切换编辑表单显示
-function toggleEditForm(pathId) {
-  const form = document.getElementById(`edit-form-${pathId}`);
-  if (form) {
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-  }
+// 切换编辑表单显示/隐藏（已废弃，保留以防兼容性问题）
+function toggleEdit(pathId) {
+  console.warn('[toggleEdit] 已废弃，请使用 contenteditable 直接编辑');
 }
 
 // 生成地图
 function generateMap() {
-  window.location.href = `/mobile.html?familyId=${familyId}`;
+  window.location.href = `mobile.html?familyId=${familyId}`;
 }
 
 // ============================================================

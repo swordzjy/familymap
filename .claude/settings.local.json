@@ -31,7 +31,20 @@
       "mcp__plugin_playwright_playwright__browser_run_code",
       "Bash(npm search:*)",
       "mcp__plugin_playwright_playwright__browser_tabs",
-      "mcp__plugin_playwright_playwright__browser_take_screenshot"
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(curl -s http://localhost:3005/mobile-chat.html)",
+      "Bash(curl -s http://localhost:3005/story-timeline.html)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(curl -s \"http://localhost:3005/story-timeline.html?familyId=1df5a6b8-a833-445d-803c-8afdb6320492\")",
+      "Bash(curl -s \"http://localhost:3005/amapapi/migration-map/1df5a6b8-a833-445d-803c-8afdb6320492\")",
+      "Bash(psql:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000/amapapi/migration-map/test-family-001)",
+      "mcp__playwright__browser_run_code"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
 }

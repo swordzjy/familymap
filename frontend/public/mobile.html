@@ -78,39 +78,127 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .amap-logo{display:none !important;}
 .amap-copyright{display:none !important;}
 
-/* 迁徙事件卡片 */
+/* 迁徙事件卡片（紧凑布局） */
 .migration-event{
-  position:absolute;top:calc(60px + env(safe-area-inset-top));left:50%;
-  transform:translateX(-50%) translateY(-20px);
+  position:absolute;top:calc(60px + env(safe-area-inset-top));left:16px;
+  transform:translateY(-20px);
   z-index:30;
-  background:rgba(9,8,6,0.92);backdrop-filter:blur(12px);
-  border:1px solid rgba(200,169,110,0.3);
-  border-radius:12px;
-  padding:14px 20px;
-  min-width:260px;max-width:calc(100% - 40px);
-  text-align:center;
+  background:rgba(9,8,6,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(200,169,110,.25);
+  border-radius:8px;
+  padding:10px 14px;
+  width:260px;
   opacity:0;pointer-events:none;
-  transition:opacity 0.6s ease,transform 0.6s ease;
+  transition:opacity .4s ease;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  cursor:grab;
+  user-select:none;
+  -webkit-user-select:none;
 }
+.migration-event.dragging{cursor:grabbing;}
 .migration-event.visible{
-  opacity:1;pointer-events:all;transform:translateX(-50%) translateY(0);
+  opacity:1;pointer-events:all;transform:translateY(0);
 }
-.event-year{
-  font-family:var(--mono);font-size:22px;font-weight:500;
-  color:var(--gold);margin-bottom:6px;letter-spacing:0.1em;
+.event-row-role{
+  font-size:11px;line-height:1.4;
+  color:var(--mist2);margin-bottom:3px;
 }
-.event-title{
-  font-family:var(--serif);font-size:14px;font-weight:400;
-  color:var(--cream);margin-bottom:6px;letter-spacing:0.05em;
+.event-role-text{
+  font-family:var(--sans);font-weight:700;
+  color:var(--gold);letter-spacing:.02em;
 }
-.event-desc{
-  font-family:var(--serif);font-size:12px;font-weight:200;
-  color:var(--mist);line-height:1.6;
+.event-desc-text{
+  font-family:var(--sans);color:var(--mist2);
+}
+.event-row-name{
+  font-size:12px;line-height:1.4;
+  color:var(--cream);margin-bottom:6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.event-name-text{
+  font-family:var(--serif);font-weight:600;
+}
+.event-event-text{
+  font-family:var(--sans);color:var(--mist);
 }
 .event-route{
-  margin-top:6px;
-  font-family:var(--mono);font-size:10px;
-  color:var(--mist2);letter-spacing:0.05em;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:4px 6px;
+  background:linear-gradient(135deg, rgba(200,169,110,.12), rgba(200,169,110,.04));
+  border-radius:4px;
+  border:1px solid rgba(200,169,110,.2);
+}
+.event-year-inline{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  color:var(--gold);letter-spacing:.1em;
+}
+.event-route-text{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--gold2);letter-spacing:.05em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:140px;
+}
+
+/* 城市弹窗 */
+.city-pop{
+  position:absolute;top:120px;left:16px;
+  width:260px;max-height:calc(100vh - 200px);
+  background:rgba(9,8,6,.96);backdrop-filter:blur(16px);
+  border:1px solid rgba(200,169,110,.4);
+  border-radius:14px;padding:0;z-index:45;
+  display:none;box-shadow:0 12px 48px rgba(0,0,0,.6);
+  overflow:hidden;cursor:grab;user-select:none;
+}
+.city-pop.dragging{cursor:grabbing;}
+.city-pop.visible{display:flex;flex-direction:column;animation:popupFadeIn .3s ease;}
+@keyframes popupFadeIn{
+  from{opacity:0;transform:translateY(-10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.cp-header{
+  padding:16px 20px 12px;
+  border-bottom:1px solid rgba(200,169,110,.2);
+  background:linear-gradient(180deg, rgba(200,169,110,.08), transparent);
+  flex-shrink:0;position:relative;
+}
+.cp-close{
+  position:absolute;top:12px;right:12px;width:32px;height:32px;
+  border:none;background:rgba(200,169,110,.15);color:var(--gold);
+  font-size:22px;cursor:pointer;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;font-weight:300;
+}
+.cp-close:hover{background:var(--gold);color:var(--night);transform:rotate(90deg);}
+.cp-name{
+  font-family:var(--serif);font-size:18px;font-weight:600;
+  color:var(--cream);margin-bottom:6px;letter-spacing:.05em;
+  padding-right:36px;
+}
+.cp-meta{
+  font-family:var(--mono);font-size:12px;color:var(--gold);
+  letter-spacing:.1em;
+}
+.cp-body{
+  padding:16px 20px;overflow-y:auto;flex:1;min-height:80px;max-height:60vh;
+}
+.cp-body::-webkit-scrollbar{width:4px;}
+.cp-body::-webkit-scrollbar-track{background:transparent;}
+.cp-body::-webkit-scrollbar-thumb{background:rgba(200,169,110,.3);border-radius:2px;}
+.cp-event{
+  padding:12px 0;
+  border-bottom:1px solid rgba(200,169,110,.1);
+}
+.cp-event:last-child{border-bottom:none;}
+.cp-event-title{
+  font-family:var(--serif);font-size:13px;font-weight:500;
+  color:var(--cream);margin-bottom:4px;
+}
+.cp-event-route{
+  font-family:var(--mono);font-size:11px;color:var(--gold2);
+  letter-spacing:.05em;
+}
+.cp-event-desc{
+  font-size:12px;color:var(--mist2);line-height:1.5;margin-top:4px;
 }
 
 /* 城市标记点样式 */
@@ -153,6 +241,143 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   font-size:12px;
   cursor:pointer;
 }
+
+/* 数据质量警告（左下角） */
+.data-warn{
+  position:absolute;bottom:calc(80px + env(safe-area-inset-bottom));left:16px;
+  z-index:900;
+}
+/* 折叠态：计数徽章 */
+.data-warn-badge{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 14px;
+  background:rgba(9,8,6,0.92);backdrop-filter:blur(8px);
+  border:1.5px solid rgba(224,114,88,0.5);
+  border-radius:10px;
+  box-shadow:0 2px 16px rgba(0,0,0,0.4);
+  transition:all 0.2s;
+}
+.data-warn-badge:hover{
+  border-color:rgba(224,114,88,0.8);
+  box-shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+/* 成功态徽章 */
+.data-warn-badge.complete{
+  border-color:rgba(62,201,160,0.5);
+  background:rgba(62,201,160,0.1);
+}
+.data-warn-badge.complete:hover{
+  border-color:rgba(62,201,160,0.8);
+}
+.data-warn-icon{
+  font-size:18px;font-weight:700;color:var(--coral);
+  line-height:1;
+}
+.data-warn-badge.complete .data-warn-icon{color:var(--teal);}
+.data-warn-count{
+  font-family:var(--mono);font-size:13px;font-weight:700;
+  color:var(--cream);
+}
+.data-warn-label{
+  font-family:var(--sans);font-size:11px;
+  color:var(--mist);margin-left:2px;
+}
+
+/* 展开态：详细报告（fixed定位，浮在最上层） */
+.data-warn-panel{
+  display:none;
+  position:fixed;
+  bottom:calc(100px + env(safe-area-inset-bottom));left:16px;
+  width:320px;max-width:calc(100vw - 32px);
+  max-height:calc(100vh - 200px);
+  background:rgba(9,8,6,0.98);backdrop-filter:blur(12px);
+  border:1.5px solid rgba(224,114,88,0.5);
+  border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  overflow:hidden;
+  z-index:999;
+}
+.data-warn.visible .data-warn-panel{display:block;animation:panelIn .25s ease;}
+.dw-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  border-bottom:1px solid rgba(200,169,110,0.15);
+  background:linear-gradient(180deg, rgba(224,114,88,0.08), transparent);
+}
+.dw-header-title{
+  font-family:var(--sans);font-size:13px;font-weight:700;
+  color:var(--cream);letter-spacing:0.02em;
+}
+.dw-close{
+  width:24px;height:24px;border:none;
+  background:rgba(200,169,110,0.15);color:var(--gold);
+  font-size:16px;cursor:pointer;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.dw-close:hover{background:var(--gold);color:var(--night);}
+@keyframes panelIn{
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+/* 类别分组 */
+.dw-body{
+  padding:12px 16px;
+  max-height:60vh;
+  overflow-y:auto;
+}
+.dw-body::-webkit-scrollbar{width:3px;}
+.dw-body::-webkit-scrollbar-track{background:transparent;}
+.dw-body::-webkit-scrollbar-thumb{background:rgba(200,169,110,0.3);border-radius:2px;}
+/* 类别标题 */
+.dw-cat{
+  margin-bottom:14px;
+}
+.dw-cat:last-child{margin-bottom:0;}
+.dw-cat-header{
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:6px;
+}
+.dw-cat-icon{
+  font-size:14px;line-height:1;
+}
+.dw-cat-title{
+  font-family:var(--sans);font-size:12px;font-weight:700;
+  color:var(--cream);letter-spacing:0.02em;
+}
+.dw-cat-count{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--coral);
+  background:rgba(224,114,88,0.15);
+  padding:2px 6px;border-radius:4px;
+}
+/* 详情列表 */
+.dw-cat-items{
+  padding-left:28px;
+}
+.dw-item{
+  font-family:var(--sans);font-size:12px;
+  color:var(--mist);line-height:1.6;
+  padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.dw-item:last-child{border-bottom:none;}
+.dw-item strong{
+  color:var(--cream);font-weight:600;
+}
+.dw-item .route{
+  color:var(--gold2);font-family:var(--mono);font-size:11px;
+}
+/* 底部提示 */
+.dw-footer{
+  padding:10px 16px;
+  border-top:1px solid rgba(200,169,110,0.1);
+  text-align:center;
+}
+.dw-footer-text{
+  font-size:11px;color:var(--mist2);
+  line-height:1.5;
+}
 </style>
 </head>
 <body>
@@ -165,16 +390,53 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 
 <!-- 迁徙事件卡片 -->
 <div class="migration-event" id="migration-event">
-  <div class="event-year" id="event-year"></div>
-  <div class="event-title" id="event-title"></div>
-  <div class="event-desc" id="event-desc"></div>
-  <div class="event-route" id="event-route"></div>
+  <div class="event-row-role">
+    <span class="event-role-text" id="event-role"></span>
+    <span class="event-desc-text"> : <span id="event-desc-inline"></span></span>
+  </div>
+  <div class="event-row-name">
+    <span class="event-name-text" id="event-name"></span>
+    <span class="event-event-text"> : <span id="event-event"></span></span>
+  </div>
+  <div class="event-route">
+    <span class="event-year-inline" id="event-year-inline"></span>
+    <span class="event-route-text" id="event-route-text"></span>
+  </div>
+</div>
+
+<!-- 城市弹窗 -->
+<div class="city-pop" id="city-pop">
+  <button class="cp-close" onclick="closeCityPop()">×</button>
+  <div class="cp-header">
+    <div class="cp-name" id="cp-name"></div>
+    <div class="cp-meta" id="cp-meta"></div>
+  </div>
+  <div class="cp-body" id="cp-body"></div>
 </div>
 
 <!-- 底部操作栏 -->
 <div class="bottom-bar">
   <div class="legend" id="legend"></div>
   <a href="#" class="action-btn" id="back-link">返回故事时间线 →</a>
+</div>
+
+<!-- 数据质量警告 -->
+<div class="data-warn" id="data-warn">
+  <div class="data-warn-badge" onclick="toggleDataWarn()">
+    <span class="data-warn-icon">⚠</span>
+    <span class="data-warn-count" id="warn-count">0</span>
+    <span class="data-warn-label">条数据不完整</span>
+  </div>
+  <div class="data-warn-panel" id="data-warn-panel">
+    <div class="dw-header">
+      <span class="dw-header-title">数据完整性报告</span>
+      <button class="dw-close" onclick="closeDataWarn()">×</button>
+    </div>
+    <div class="dw-body" id="warn-body"></div>
+    <div class="dw-footer">
+      <div class="dw-footer-text" id="warn-footer"></div>
+    </div>
+  </div>
 </div>
 
 <!-- 地图容器 -->
@@ -191,13 +453,16 @@ const API_BASE = '/amapapi';
 
 // 迁徙颜色映射
 const MIGRATION_COLORS = {
-  study:    '#a890e0',  // 求学 - 紫色
-  work:     '#6aabdc',  // 工作 - 蓝色
-  family:   '#3ec9a0',  // 家庭 - 青色
-  assignment:'#e07258', // 分配 - 珊瑚色
-  war:      '#A32D2D',  // 战乱 - 红色
-  disaster: '#e07258',  // 灾荒 - 橙色
-  unknown:  '#c8a96e',  // 其他 - 金色
+  survival: '#c8a96e',
+  war:      '#e07258',
+  policy:   '#3ec9a0',
+  work:     '#a890e0',
+  study:    '#6aabdc',
+  family:   '#3ec9a0',
+  hope:     '#e8d098',
+  assignment:'#e07258',
+  disaster: '#e07258',
+  unknown:  '#c8a96e',
   default:  '#c8a96e',
 };
 
@@ -209,6 +474,9 @@ const REASON_LABELS = {
   assignment: '分配',
   war: '战乱',
   disaster: '灾荒',
+  survival: '逃荒',
+  policy: '政策',
+  hope: '返乡',
   unknown: '其他',
 };
 
@@ -339,47 +607,102 @@ async function initMap() {
 }
 
 // ============================================================
+// 从 API 路径数据构建 cities + routes 结构
+// ============================================================
+function getPathColor(reasonType) {
+  const colors = {
+    survival: '#c8a96e', war: '#e07258', policy: '#3ec9a0',
+    work: '#a890e0', study: '#6aabdc', family: '#3ec9a0',
+    hope: '#e8d098',
+  };
+  return colors[reasonType] || '#c8a96e';
+}
+
+function buildStoryFromPaths(paths, persons) {
+  const cities = [];
+  const cityMap = new Map();
+  const personMap = {};
+  persons.forEach(p => { personMap[p.internal_id || p.id] = p; });
+
+  paths.forEach(path => {
+    const fromLng = parseFloat(path.from_lng || path.fromLng || 0);
+    const fromLat = parseFloat(path.from_lat || path.fromLat || 0);
+    const toLng = parseFloat(path.to_lng || path.toLng || 0);
+    const toLat = parseFloat(path.to_lat || path.toLat || 0);
+
+    if (!cityMap.has(path.from_place)) {
+      cityMap.set(path.from_place, cities.length);
+      cities.push({ name: path.from_place, lng: fromLng, lat: fromLat, color: getPathColor(path.reason_type) });
+    }
+    if (!cityMap.has(path.to_place)) {
+      cityMap.set(path.to_place, cities.length);
+      cities.push({ name: path.to_place, lng: toLng, lat: toLat, color: getPathColor(path.reason_type) });
+    }
+  });
+
+  // 构建路由并排序：按人物顺序（本人→长辈→晚辈），每人内按时间排序
+  const rawRoutes = paths.map(path => {
+    const person = personMap[path.person_internal_id] || personMap[path.person_id];
+    return {
+      from: cityMap.get(path.from_place),
+      to: cityMap.get(path.to_place),
+      color: getPathColor(path.reason_type),
+      width: 3,
+      label: REASON_LABELS[path.reason_type] || path.reason_type || '迁徙',
+      year: path.year || '?',
+      yearNum: parseInt(path.year) || 9999,
+      event: path.reason || path.event_desc || '家族迁徙',
+      desc: `${person?.role || ''}${person?.name ? ' · ' + person.name : ''} 从 ${path.from_place} 迁往 ${path.to_place}`,
+      person,
+      reason_type: path.reason_type,
+      _personId: person?.internal_id || person?.id || '',
+      _personRole: person?.role || '',
+      _generation: person?.generation ?? 999,
+    };
+  });
+
+  // 找出"本人"的 generation
+  let selfGeneration = null;
+  rawRoutes.forEach(r => {
+    if (r._personRole === '本人' || r._personRole.includes('自己')) {
+      if (selfGeneration === null || r._generation < selfGeneration) {
+        selfGeneration = r._generation;
+      }
+    }
+  });
+
+  // 排序规则：
+  // 1. 本人的迁徙最先显示
+  // 2. 其余按 generation 从高到低（长辈优先）
+  // 3. 同一人内按年份从早到晚
+  rawRoutes.sort((a, b) => {
+    const aIsSelf = a._personRole === '本人' || a._personRole.includes('自己');
+    const bIsSelf = b._personRole === '本人' || b._personRole.includes('自己');
+    if (aIsSelf && !bIsSelf) return -1;
+    if (!aIsSelf && bIsSelf) return 1;
+    // 同一个人或同为本人/非本人：按 generation 降序（长辈先）
+    if (a._generation !== b._generation) return b._generation - a._generation;
+    // 同一人：按年份升序
+    if (a.yearNum !== b.yearNum) return a.yearNum - b.yearNum;
+    return 0;
+  });
+
+  return { cities, routes: rawRoutes };
+}
+
+// ============================================================
 // 渲染用户路径
 // ============================================================
 function renderUserPaths(data) {
   console.log('[mobile] renderUserPaths 数据:', data);
 
   const loadingEl = document.getElementById('map-loading');
-  const legendEl = document.getElementById('legend');
-
-  // 隐藏加载状态
   loadingEl.style.display = 'none';
 
-  // 处理数据 - 兼容两种格式
   const paths = data.paths || data.migrations || [];
   const persons = data.persons || [];
 
-  console.log('[mobile] paths 第一项:', paths[0]);
-
-  // 构建人物映射
-  const personMap = {};
-  persons.forEach(p => {
-    personMap[p.internal_id || p.id] = p;
-  });
-
-  // 过滤有效路径（有经纬度）- 兼容多种字段名
-  const validPaths = paths.filter(p => {
-    // 尝试不同的字段名
-    const fromLng = p.from_lng || p.fromLng || p.start_lng || p.startLng;
-    const fromLat = p.from_lat || p.fromLat || p.start_lat || p.startLat;
-    const toLng = p.to_lng || p.toLng || p.end_lng || p.endLng;
-    const toLat = p.to_lat || p.toLat || p.end_lat || p.endLat;
-
-    const hasCoords = fromLng && fromLat && toLng && toLat;
-    if (!hasCoords) {
-      console.log('[mobile] 路径缺少坐标:', p);
-    }
-    return hasCoords;
-  });
-
-  console.log('[mobile] validPaths 数量:', validPaths.length);
-
-  if (validPaths.length === 0) {
+  if (paths.length === 0) {
     loadingEl.innerHTML = `
       <div class="map-loading-txt">暂无可显示的迁徙数据</div>
       <div class="map-loading-error">请确保聊天中包含地点信息</div>
@@ -388,26 +711,19 @@ function renderUserPaths(data) {
     return;
   }
 
-  // 排序
-  const sorted = [...validPaths].sort((a, b) =>
-    (a.sequence_order || 0) - (b.sequence_order || 0)
-  );
+  const story = buildStoryFromPaths(paths, persons);
+  state.story = story;
 
   // 统计城市数量
-  const citySet = new Set();
-  sorted.forEach(p => {
-    citySet.add(p.from_place);
-    citySet.add(p.to_place);
-  });
-
-  // 更新标题
+  const citySet = new Set(story.cities.map(c => c.name));
   const familyName = data.familyName || data.family_name || '您的家族';
   document.getElementById('map-title').textContent = `${familyName} · 家族迁徙地图`;
   document.getElementById('map-subtitle').textContent =
-    `${sorted.length} 段迁徙 · ${citySet.size} 座城市`;
+    `${story.routes.length} 段迁徙 · ${citySet.size} 座城市`;
 
   // 构建图例
-  const reasonTypes = new Set(sorted.map(p => p.reason_type || 'unknown'));
+  const reasonTypes = new Set(story.routes.map(r => r.reason_type || 'unknown'));
+  const legendEl = document.getElementById('legend');
   let legendHtml = '';
   reasonTypes.forEach(type => {
     const color = MIGRATION_COLORS[type] || MIGRATION_COLORS.default;
@@ -421,114 +737,84 @@ function renderUserPaths(data) {
   });
   legendEl.innerHTML = legendHtml;
 
-  // 清除旧标记
-  state.markers.forEach(m => m.remove());
-  state.polylines.forEach(p => p.remove());
-  state.markers = [];
-  state.polylines = [];
-
-  // 创建路径和标记
-  const polylines = [];
-  const markerPairs = [];
-
-  sorted.forEach((path, idx) => {
-    const person = personMap[path.person_internal_id] || personMap[path.person_id];
-    const color = MIGRATION_COLORS[path.reason_type] || MIGRATION_COLORS.default;
-
-    // 兼容不同的字段名，转换为数字
-    const fromLng = parseFloat(path.from_lng || path.fromLng || path.start_lng);
-    const fromLat = parseFloat(path.from_lat || path.fromLat || path.start_lat);
-    const toLng = parseFloat(path.to_lng || path.toLng || path.end_lng);
-    const toLat = parseFloat(path.to_lat || path.toLat || path.end_lat);
-    const fromPlace = path.from_place || path.fromPlace || path.start_place;
-    const toPlace = path.to_place || path.toPlace || path.end_place;
-
-    const from = [fromLng, fromLat];
-    const to = [toLng, toLat];
-
-    const midLng = (fromLng + toLng) / 2;
-    const midLat = (fromLat + toLat) / 2 + 2.5 + (idx * 0.8);
-    const allPts = generateCurve(from, to, [midLng, midLat], 80);
-
-    const line = new AMap.Polyline({
-      path: [allPts[0], allPts[0]],
-      strokeColor: color,
-      strokeWeight: path.emotion_weight === 'high' ? 4 : 3,
-      strokeOpacity: 0,
-      strokeStyle: 'solid',
-      lineJoin: 'round',
-      lineCap: 'round',
-    });
-    line._allPts = allPts;
-    line.setMap(state.amapInstance);
-    polylines.push(line);
-    state.polylines.push(line);
-
-    const fromWrap = createCityMarkerEl(fromPlace, color, false);
-    const fromMk = new AMap.Marker({
-      position: from,
-      content: fromWrap,
-      anchor: 'bottom-center',
-    });
-    const toWrap = createCityMarkerEl(toPlace, color, idx === sorted.length - 1);
-    const toMk = new AMap.Marker({
-      position: to,
-      content: toWrap,
-      anchor: 'bottom-center',
-    });
-    fromMk.setMap(state.amapInstance);
-    toMk.setMap(state.amapInstance);
-    markerPairs.push({ fromWrap, toWrap, fromMk, toMk });
-    state.markers.push(fromMk, toMk);
-  });
-
-  // 调整视野
-  state.amapInstance.setFitView(state.markers, false, [60, 60, 100, 120]);
-
-  // 设置返回链接（带 familyId）
+  // 设置返回链接
   const backLink = document.getElementById('back-link');
   if (backLink && state.familyId) {
-    backLink.href = `/story-timeline.html?familyId=${state.familyId}`;
+    backLink.href = `./story-timeline.html?familyId=${state.familyId}`;
   }
 
-  // 开始动画
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1200);
+  // 开始动画序列
+  setTimeout(() => startSequence(story), 800);
+
+  // 检测并显示数据完整性报告
+  showCoordWarn(paths, persons);
 }
 
 // ============================================================
-// 生成贝塞尔曲线
+// 贝塞尔曲线生成（返回 AMap.LngLat 数组）
 // ============================================================
-function generateCurve(from, to, mid, steps) {
+function bezierPoints(p0, p1, p2, steps) {
   const points = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const t1 = 1 - t;
-    const x = t1 * t1 * from[0] + 2 * t1 * t * mid[0] + t * t * to[0];
-    const y = t1 * t1 * from[1] + 2 * t1 * t * mid[1] + t * t * to[1];
-    points.push([x, y]);
+    const x = t1 * t1 * p0.getLng() + 2 * t1 * t * p1.lng + t * t * p2.getLng();
+    const y = t1 * t1 * p0.getLat() + 2 * t1 * t * p1.lat + t * t * p2.getLat();
+    points.push(new AMap.LngLat(x, y));
   }
   return points;
 }
 
 // ============================================================
-// 创建城市标记元素（只显示圆点，不显示城市名称）
+// 调整地图视野（考虑贝塞尔曲线拱形高度）
+// ============================================================
+function fitStoryBoundsWithCurves(cities) {
+  const valid = cities.filter(c => c.lng && c.lat && c.lng !== 0 && c.lat !== 0);
+  if (valid.length === 0) return;
+
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  valid.forEach(c => {
+    minLng = Math.min(minLng, c.lng); maxLng = Math.max(maxLng, c.lng);
+    minLat = Math.min(minLat, c.lat); maxLat = Math.max(maxLat, c.lat);
+  });
+
+  const curveHeight = 2.5;
+  const adjustedMaxLat = maxLat + curveHeight;
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + adjustedMaxLat) / 2;
+  const lngSpan = maxLng - minLng;
+  const adjustedLatSpan = adjustedMaxLat - minLat;
+  const maxSpan = Math.max(lngSpan, adjustedLatSpan);
+
+  let zoom = maxSpan > 25 ? 3 : maxSpan > 20 ? 4 : maxSpan > 15 ? 5 : maxSpan > 10 ? 6 : maxSpan > 5 ? 7 : 8;
+  zoom = Math.max(4, zoom - 1);
+
+  console.log(`[fitStoryBounds] 中心=[${centerLng.toFixed(2)}, ${centerLat.toFixed(2)}], zoom=${zoom}, 跨度=${maxSpan.toFixed(1)}`);
+  state.amapInstance.setZoomAndCenter(zoom, [centerLng, centerLat], false, 800);
+}
+
+// ============================================================
+// 创建城市标记元素（圆点 + 光晕，保留 mobile.html 特色）
 // ============================================================
 function createCityMarkerEl(placeName, color, isLast) {
   const wrap = document.createElement('div');
   wrap.style.cssText = `
     opacity:0;transform:translateY(8px);
     display:flex;flex-direction:column;align-items:center;
-    cursor:pointer;
+    cursor:pointer;transition:opacity 0.8s ease, transform 0.8s ease;
   `;
 
-  const dotSize = isLast ? '16px' : '11px';
-  const glow = isLast ? `0 0 18px ${color}aa` : `0 0 10px ${color}66`;
+  const dotSize = isLast ? '22px' : '16px';
+  const glowSize = isLast ? '28px' : '18px';
+  const glowOuter = isLast ? '42px' : '28px';
+  const glow = `0 0 ${glowSize} ${color}cc, 0 0 ${glowOuter} ${color}44`;
+  const innerBorder = isLast ? '3px' : '2px';
 
   wrap.innerHTML = `
     <div style="
       width:${dotSize};height:${dotSize};border-radius:50%;
-      background:${color};
-      border:2px solid rgba(9,8,6,.85);
+      background:radial-gradient(circle, ${color} 0%, ${color}88 100%);
+      border:${innerBorder}px solid rgba(9,8,6,.85);
       box-shadow:${glow};
       ${isLast ? 'animation:termPulse 3.5s ease-in-out infinite;' : ''}
     "></div>
@@ -537,100 +823,177 @@ function createCityMarkerEl(placeName, color, isLast) {
   if (isLast && !document.getElementById('term-pulse-style')) {
     const st = document.createElement('style');
     st.id = 'term-pulse-style';
-    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 12px ${color}77;}50%{box-shadow:0 0 28px ${color}cc;}}`;
+    st.textContent = `@keyframes termPulse{0%,100%{box-shadow:0 0 18px ${color}aa, 0 0 32px ${color}66;}50%{box-shadow:0 0 30px ${color}cc, 0 0 48px ${color}88;}}`;
     document.head.appendChild(st);
   }
 
   return wrap;
 }
 
-// ============================================================
 // 显示标记
-// ============================================================
-function showMarker(wrap) {
+function showMarkerEl(wrap) {
   if (!wrap) return;
-  wrap.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
   wrap.style.opacity = '1';
   wrap.style.transform = 'translateY(0)';
 }
 
 // ============================================================
-// 路径动画序列
+// 动画序列
 // ============================================================
-function startPathSequence(sorted, polylines, markerPairs, personMap) {
+function startSequence(story) {
   if (state.isAnimating) return;
   state.isAnimating = true;
 
-  let delay = 0;
-  const DRAW_MS = 4000;
-  const CARD_SHOW_MS = 3000;
+  const cities = story.cities;
+  const routes = story.routes;
 
-  sorted.forEach((path, idx) => {
-    const person = personMap[path.person_internal_id] || personMap[path.person_id];
+  // 调整视野
+  fitStoryBoundsWithCurves(cities);
 
-    setTimeout(() => showMarker(markerPairs[idx].fromWrap), delay);
-    setTimeout(() => {
-      showEvent(path, person);
-    }, delay + 500);
-    const lineDelay = delay + 500 + CARD_SHOW_MS;
-    setTimeout(() => drawLineAnimate(polylines[idx], DRAW_MS), lineDelay);
-    setTimeout(() => {
-      hideEvent();
-      showMarker(markerPairs[idx].toWrap);
-    }, lineDelay + DRAW_MS);
-    delay = lineDelay + DRAW_MS + 1500;
+  // 清除旧元素
+  state.markers.forEach(m => m.remove());
+  state.polylines.forEach(p => p.remove());
+  state.markers = [];
+  state.polylines = [];
+
+  // 为每个城市创建标记（opacity: 0，自定义 content 为圆点+光晕）
+  const cityMarkers = cities.map((city, idx) => {
+    if (!city.lng || !city.lat || city.lng === 0 || city.lat === 0) return null;
+    const isLastCity = idx === cities.length - 1;
+    const contentEl = createCityMarkerEl(city.name, city.color, isLastCity);
+    const marker = new AMap.Marker({
+      position: new AMap.LngLat(city.lng, city.lat),
+      content: contentEl,
+      anchor: 'bottom-center',
+    });
+    marker._contentEl = contentEl;
+    marker._city = city;
+    marker._cityIndex = idx;
+    // 点击事件
+    marker.on('click', () => openCityPop(city, idx, story));
+    marker.setMap(state.amapInstance);
+    state.markers.push(marker);
+    return marker;
   });
 
-  // 动画结束后重置循环
-  setTimeout(() => {
-    state.isAnimating = false;
+  // 启动每段路径动画（基于 idx * 5500 的定时序列）
+  const DRAW_MS = 4000;
+  routes.forEach((route, idx) => {
+    const delay = idx * 5500;
+
+    // 起点出现
     setTimeout(() => {
-      resetAnimation(sorted, polylines, markerPairs, personMap);
-    }, 3000);
-  }, delay);
+      const m = cityMarkers[route.from];
+      if (m && m._contentEl) showMarkerEl(m._contentEl);
+    }, delay);
+
+    // 显示事件卡片
+    setTimeout(() => {
+      showEvent(route, story, idx);
+    }, delay + 800);
+
+    // 路径绘制
+    setTimeout(() => {
+      drawPolylineAnimate(route, cities, DRAW_MS);
+    }, delay + 1500);
+
+    // 终点出现
+    setTimeout(() => {
+      const m = cityMarkers[route.to];
+      if (m && m._contentEl) showMarkerEl(m._contentEl);
+    }, delay + 1500 + DRAW_MS);
+  });
+
+  // 最后一段动画结束后调整视野并重置循环
+  const totalDelay = (routes.length - 1) * 5500 + 1500 + DRAW_MS;
+  setTimeout(() => {
+    fitStoryBoundsWithCurves(cities);
+    state.isAnimating = false;
+    // 3秒后重置循环
+    setTimeout(() => resetAnimation(story), 3000);
+  }, totalDelay + 1000);
 }
 
 // 重置动画
-function resetAnimation(sorted, polylines, markerPairs, personMap) {
+function resetAnimation(story) {
   state.markers.forEach(m => {
-    const content = m.getContent();
-    if (content && content.style) {
-      content.style.opacity = '0';
-      content.style.transform = 'translateY(8px)';
+    if (m._contentEl) {
+      m._contentEl.style.opacity = '0';
+      m._contentEl.style.transform = 'translateY(8px)';
     }
   });
-  state.polylines.forEach(p => p.setOptions({ strokeOpacity: 0 }));
+  state.polylines.forEach(p => p.remove());
+  state.polylines = [];
   hideEvent();
 
-  setTimeout(() => startPathSequence(sorted, polylines, markerPairs, personMap), 1000);
+  setTimeout(() => startSequence(story), 1000);
+}
+
+// ============================================================
+// 单段路径绘制动画
+// ============================================================
+function drawPolylineAnimate(route, cities, duration) {
+  const cityFrom = cities[route.from];
+  const cityTo = cities[route.to];
+  if (!cityFrom || !cityTo) return;
+  if (!cityFrom.lng || !cityFrom.lat || !cityTo.lng || !cityTo.lat) return;
+
+  const p0 = new AMap.LngLat(cityFrom.lng, cityFrom.lat);
+  const p2 = new AMap.LngLat(cityTo.lng, cityTo.lat);
+  const midLng = (cityFrom.lng + cityTo.lng) / 2;
+  const midLat = (cityFrom.lat + cityTo.lat) / 2 + 2.5;
+  const p1 = { lng: midLng, lat: midLat };
+
+  const path = bezierPoints(p0, p1, p2, 60);
+  if (path.length === 0) return;
+
+  const polyline = new AMap.Polyline({
+    path: [path[0]],
+    strokeColor: route.color,
+    strokeWeight: route.width,
+    strokeOpacity: 0.9,
+    strokeStyle: 'solid',
+    lineJoin: 'round',
+    lineCap: 'round',
+  });
+  polyline.setMap(state.amapInstance);
+  state.polylines.push(polyline);
+
+  const steps = path.length;
+  const interval = Math.max(duration / steps, 16);
+  let drawn = 1;
+
+  const timer = setInterval(() => {
+    if (drawn >= steps) { clearInterval(timer); return; }
+    polyline.setPath(path.slice(0, drawn + 1));
+    drawn++;
+  }, interval);
 }
 
 // ============================================================
 // 显示迁徙事件卡片
 // ============================================================
-function showEvent(path, person) {
+function showEvent(route, story, idx) {
   const eventEl = document.getElementById('migration-event');
   if (!eventEl) return;
 
-  const personName = person?.name && person.name !== '未知' ? person.name : '';
-  const personRole = person?.role || '';
-  const generation = person?.generation !== undefined ? `第${person.generation}代` : '';
+  const cityFrom = story.cities[route.from];
+  const cityTo = story.cities[route.to];
+  const person = route.person;
 
-  const reasonType = REASON_LABELS[path.reason_type] || path.reason_type || '';
-  const reason = path.reason || path.event_desc || '';
+  // Row 1: 角色名（金字）: 描述
+  document.getElementById('event-role').textContent = person?.role || '';
+  document.getElementById('event-desc-inline').textContent = `从 ${cityFrom?.name || ''} 迁往 ${cityTo?.name || ''}`;
 
-  const fromPlace = path.from_place || path.fromPlace || path.start_place;
-  const toPlace = path.to_place || path.toPlace || path.end_place;
+  // Row 2: 名字: 事件
+  document.getElementById('event-name').textContent = person?.name || '';
+  document.getElementById('event-event').textContent = route.event;
 
-  document.getElementById('event-year').textContent = `${path.year || '时间未知'} · ${reasonType}`;
-  document.getElementById('event-title').textContent = `${personRole}${personName ? ' · ' + personName : ''} ${generation}`;
-  document.getElementById('event-desc').textContent = reason;
-  document.getElementById('event-route').textContent = `${fromPlace} → ${toPlace}`;
+  // Row 3: 年份 + 路线（不变）
+  document.getElementById('event-year-inline').textContent = route.year;
+  document.getElementById('event-route-text').textContent = `${cityFrom?.name || ''} → ${cityTo?.name || ''}`;
 
   eventEl.classList.add('visible');
-  setTimeout(() => {
-    eventEl.classList.remove('visible');
-  }, 4000);
 }
 
 function hideEvent() {
@@ -638,23 +1001,267 @@ function hideEvent() {
 }
 
 // ============================================================
-// 路径动画
+// 通用弹窗拖拽（鼠标+触屏，排除关闭按钮）
 // ============================================================
-function drawLineAnimate(line, duration) {
-  if (!line) return;
-  const allPts = line._allPts;
-  if (!allPts) return;
+function makePopupDraggable(el, onClose) {
+  if (!el) return;
+  let dragging = false;
+  let offX = 0, offY = 0;
 
-  line.setOptions({ strokeOpacity: 0.9 });
-  const steps = allPts.length;
-  const interval = Math.max(duration / steps, 16);
-  let drawn = 1;
+  function onStart(e) {
+    const pt = e.touches ? e.touches[0] : e;
+    const rect = el.getBoundingClientRect();
+    offX = pt.clientX - rect.left;
+    offY = pt.clientY - rect.top;
 
-  const timer = setInterval(() => {
-    drawn = Math.min(drawn + 2, steps);
-    line.setPath(allPts.slice(0, drawn));
-    if (drawn >= steps) clearInterval(timer);
-  }, interval * 2);
+    function onCheckMove(ev) {
+      const p = ev.touches ? ev.touches[0] : ev;
+      const dx = Math.abs(p.clientX - rect.left - offX);
+      const dy = Math.abs(p.clientY - rect.top - offY);
+      if (dx > 5 || dy > 5) {
+        dragging = true;
+        el.style.transition = 'none';
+        el.style.position = 'fixed';
+        el.style.zIndex = '9999';
+        document.removeEventListener('mousemove', onCheckMove);
+        document.removeEventListener('touchmove', onCheckMove);
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('touchmove', onDrag, { passive: false });
+      }
+    }
+    function onDrag(ev) {
+      if (!dragging) return;
+      const p = ev.touches ? ev.touches[0] : ev;
+      if (ev.cancelable) ev.preventDefault();
+      const newLeft = p.clientX - offX;
+      const newTop = p.clientY - offY;
+      el.style.left = newLeft + 'px';
+      el.style.top = newTop + 'px';
+
+      // 拖出顶部边界（超过屏幕外 100px）自动关闭
+      if (newTop < -100) {
+        doClose();
+      }
+    }
+    function doClose() {
+      dragging = false;
+      document.removeEventListener('mousemove', onCheckMove);
+      document.removeEventListener('touchmove', onCheckMove);
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('touchmove', onDrag);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchend', onEnd);
+      if (onClose) onClose();
+    }
+    function onEnd() {
+      doClose();
+    }
+    document.addEventListener('mousemove', onCheckMove);
+    document.addEventListener('touchmove', onCheckMove, { passive: true });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+  }
+
+  el.addEventListener('mousedown', onStart);
+  el.addEventListener('touchstart', onStart, { passive: true });
+}
+
+// ============================================================
+// 城市弹窗（点击地点标记显示该城市相关的所有事件）
+// ============================================================
+function openCityPop(city, cityIndex, story) {
+  const popup = document.getElementById('city-pop');
+  if (!popup) return;
+
+  // 重置位置和样式
+  popup.style.position = '';
+  popup.style.left = '';
+  popup.style.top = '';
+  popup.style.transform = '';
+  popup.style.zIndex = '';
+
+  document.getElementById('cp-name').textContent = city.name;
+
+  // 查找所有经过该城市的路线（作为起点或终点）
+  const relatedRoutes = story.routes.filter((r, idx) =>
+    r.from === cityIndex || r.to === cityIndex
+  );
+
+  if (relatedRoutes.length > 0) {
+    const years = relatedRoutes.map(r => r.year).filter(y => y !== '?');
+    const yearRange = years.length > 0 ? `${Math.min(...years)}-${Math.max(...years)}` : '?';
+    document.getElementById('cp-meta').textContent = `${relatedRoutes.length} 段迁徙 · ${yearRange}`;
+
+    let bodyHtml = '';
+    relatedRoutes.forEach(r => {
+      const fromCity = story.cities[r.from];
+      const toCity = story.cities[r.to];
+      const isArrival = r.to === cityIndex;
+      const direction = isArrival ? '迁入' : '迁出';
+      bodyHtml += `
+        <div class="cp-event">
+          <div class="cp-event-title" style="color:${r.color}">${direction} · ${r.label} ${r.year}</div>
+          <div class="cp-event-route">${fromCity.name} → ${toCity.name}</div>
+          <div class="cp-event-desc">${r.event}${r.person?.name ? ' — ' + r.person.name : ''}</div>
+        </div>
+      `;
+    });
+    document.getElementById('cp-body').innerHTML = bodyHtml;
+  } else {
+    document.getElementById('cp-meta').textContent = '';
+    document.getElementById('cp-body').innerHTML = '<div style="color:var(--mist2);font-size:13px;">暂无关联事件</div>';
+  }
+
+  popup.classList.add('visible');
+}
+
+function closeCityPop() {
+  const popup = document.getElementById('city-pop');
+  if (popup) popup.classList.remove('visible');
+}
+
+// ============================================================
+// 城市弹窗拖拽
+// ============================================================
+(function initCityPopDrag() {
+  makePopupDraggable(document.getElementById('city-pop'), function() {
+    closeCityPop();
+  });
+})();
+
+// ============================================================
+// 迁徙事件卡片拖拽
+// ============================================================
+(function initEventDrag() {
+  makePopupDraggable(document.getElementById('migration-event'), null);
+})();
+
+// ============================================================
+// 数据完整性报告（左下角，点击展开）
+// ============================================================
+function toggleDataWarn() {
+  const badge = document.getElementById('data-warn');
+  if (badge.classList.contains('complete')) return;
+  badge.classList.toggle('visible');
+}
+function closeDataWarn() {
+  document.getElementById('data-warn').classList.remove('visible');
+}
+
+function showCoordWarn(paths, persons) {
+  // 按类别收集所有不完整的数据
+  const issues = {
+    coords: [],   // 坐标缺失
+    year: [],     // 时间缺失
+    person: [],   // 人物缺失
+    reason: [],   // 原因缺失
+    place: [],    // 地点缺失
+  };
+
+  // 构建人物映射
+  const personMap = {};
+  (persons || []).forEach(p => { personMap[p.internal_id || p.id] = p; });
+
+  paths.forEach((p, idx) => {
+    const fromLng = parseFloat(p.from_lng || p.fromLng || 0);
+    const fromLat = parseFloat(p.from_lat || p.fromLat || 0);
+    const toLng = parseFloat(p.to_lng || p.toLng || 0);
+    const toLat = parseFloat(p.to_lat || p.toLat || 0);
+    const person = personMap[p.person_internal_id] || personMap[p.person_id];
+    const fromPlace = p.from_place || p.from_place_raw || '';
+    const toPlace = p.to_place || p.to_place_raw || '';
+    const seqLabel = `第${idx + 1}条`;
+
+    // 坐标缺失
+    if (!fromLng || !fromLat || !toLng || !toLat) {
+      const parts = [];
+      if (!fromLng || !fromLat) parts.push(`起点无坐标`);
+      if (!toLng || !toLat) parts.push(`终点无坐标`);
+      issues.coords.push({ label: seqLabel, route: `${fromPlace || '?'} → ${toPlace || '?'}`, detail: parts.join('；') });
+    }
+
+    // 时间缺失
+    if (!p.year || p.year === '未知') {
+      issues.year.push({ label: seqLabel, route: `${fromPlace || '?'} → ${toPlace || '?'}`, detail: '年份未知' });
+    }
+
+    // 人物缺失
+    if (!person || !person.name || person.name === '未知') {
+      issues.person.push({ label: seqLabel, route: `${fromPlace || '?'} → ${toPlace || '?'}`, detail: '未关联人物' });
+    }
+
+    // 原因缺失
+    if (!p.reason || p.reason === '未知') {
+      issues.reason.push({ label: seqLabel, route: `${fromPlace || '?'} → ${toPlace || '?'}`, detail: '原因未记录' });
+    }
+
+    // 地点缺失
+    if (!fromPlace || !toPlace) {
+      issues.place.push({ label: seqLabel, route: `${fromPlace || '?'} → ${toPlace || '?'}`, detail: '地名为空' });
+    }
+  });
+
+  // 计算总问题数
+  const totalIssues = Object.values(issues).reduce((s, arr) => s + arr.length, 0);
+
+  const badge = document.getElementById('data-warn');
+  const badgeInner = badge.querySelector('.data-warn-badge');
+
+  if (totalIssues === 0) {
+    // 数据完整，显示绿色徽章
+    badgeInner.classList.add('complete');
+    badgeInner.innerHTML = `<span class="data-warn-icon">✓</span><span class="data-warn-count" style="color:var(--teal)">数据完整</span>`;
+    badge.classList.add('complete');
+    return;
+  }
+
+  badgeInner.classList.remove('complete');
+  badge.classList.remove('complete');
+
+  // 有问题，显示警告
+  document.getElementById('warn-count').textContent = totalIssues;
+
+  // 构建详细报告
+  const categories = [
+    { key: 'coords', icon: '📍', title: '坐标缺失', color: '#e07258' },
+    { key: 'year', icon: '📅', title: '时间缺失', color: '#6aabdc' },
+    { key: 'person', icon: '👤', title: '人物缺失', color: '#a890e0' },
+    { key: 'reason', icon: '❓', title: '原因缺失', color: '#e8d098' },
+    { key: 'place', icon: '🏘️', title: '地点缺失', color: '#3ec9a0' },
+  ];
+
+  let bodyHtml = '';
+  categories.forEach(cat => {
+    const items = issues[cat.key];
+    if (items.length === 0) return;
+
+    bodyHtml += `<div class="dw-cat">`;
+    bodyHtml += `<div class="dw-cat-header">
+      <span class="dw-cat-icon">${cat.icon}</span>
+      <span class="dw-cat-title" style="color:${cat.color}">${cat.title}</span>
+      <span class="dw-cat-count">${items.length}</span>
+    </div>`;
+    bodyHtml += `<div class="dw-cat-items">`;
+    items.forEach(item => {
+      bodyHtml += `<div class="dw-item"><span class="route">${item.route}</span> — ${item.detail}</div>`;
+    });
+    bodyHtml += `</div></div>`;
+  });
+
+  document.getElementById('warn-body').innerHTML = bodyHtml;
+
+  // 底部提示
+  const coordIssues = issues.coords.length;
+  const otherIssues = totalIssues - coordIssues;
+  let footerText = '';
+  if (coordIssues > 0) {
+    footerText += `⚠ ${coordIssues} 条路线因坐标缺失无法在地图上显示`;
+  }
+  if (otherIssues > 0) {
+    if (coordIssues > 0) footerText += '<br>';
+    footerText += `其余 ${otherIssues} 条数据不完整，但可在故事时间线中查看`;
+  }
+  document.getElementById('warn-footer').innerHTML = footerText;
 }
 
 // ============================================================

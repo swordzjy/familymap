@@ -1339,7 +1339,7 @@ async function generateMap() {
     state.familyId = extractData.familyId;
 
     // 2. 跳转到故事时间线页面（先展示整理好的数据）
-    window.location.href = `/story-timeline.html?familyId=${state.familyId}`;
+    window.location.href = `story-timeline.html?familyId=${state.familyId}`;
 
   } catch (err) {
     setLoading(false);

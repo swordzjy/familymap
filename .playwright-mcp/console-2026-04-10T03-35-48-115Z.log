@@ -1,0 +1,3 @@
+[   72858ms] [LOG] [mobile] URL familyId: null @ http://localhost:3005/mobile.html:518
+[   73701ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:3005/mobile.html:0
+[   73704ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3005/favicon.ico:0

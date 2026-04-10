@@ -431,7 +431,7 @@ app.post('/amapapi/extract', async (req, res) => {
 }
 
 规则：
-- generation: 0=本人, 1=父辈, 2=祖辈, -1=子辈
+- generation: 0=本人，1=父辈，2=祖辈，-1=子辈（后端会根据出生年份动态重新计算）
 - emotion_weight: 重大历史背景下的迁徙填high，普通求学填medium，日常移居填low
 - sequence_order 全局递增，按时间排序
 - name 字段：如果对话中没有提到具体姓名，直接使用 role 的值（如"父亲"、"爷爷"）
@@ -600,20 +600,33 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       narrative: row.narrative || null  // 保留叙事字段
     }));
 
+    // 去重处理：按 person_internal_id + year + from_place_raw + to_place_raw 分组
+    // 保留 sequence_order 最小的记录（最早的）
+    const deduplicated = new Map();
+    processedPaths.forEach(row => {
+      const key = `${row.person_internal_id}|${row.year || 'unknown'}|${row.from_place_raw || ''}|${row.to_place_raw || ''}`;
+      if (!deduplicated.has(key) || row.sequence_order < deduplicated.get(key).sequence_order) {
+        deduplicated.set(key, row);
+      }
+    });
+    const uniquePaths = Array.from(deduplicated.values());
+
+    log.db(`[migration-map] 去重后：${processedPaths.length} → ${uniquePaths.length} 条迁徙`);
+
     const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
     const family = await db.query(`SELECT family_name FROM family_profiles WHERE id=$1`, [familyId]);
 
-    log.db(`[migration-map] paths=${processedPaths.length}  persons=${persons.rows.length}`);
+    log.db(`[migration-map] paths=${uniquePaths.length}  persons=${persons.rows.length}`);
 
     const events = [];
-    for (const row of processedPaths) {
+    for (const row of uniquePaths) {
       if (row.year) {
         const matched = await matchHistoricalEvents(row.year);
         if (matched.length > 0) events.push({ migration_id: row.id, year: row.year, events: matched });
       }
     }
 
-    const missingCoords = processedPaths.filter(r => !r.from_lng || !r.to_lng);
+    const missingCoords = uniquePaths.filter(r => !r.from_lng || !r.to_lng);
     if (missingCoords.length > 0) {
       log.warn(`[migration-map] ${missingCoords.length} 条迁徙缺少坐标:`,
         missingCoords.map(r => `${r.from_place}→${r.to_place}`).join(', '));
@@ -643,7 +656,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     res.json({
       success: true,
       familyName: family.rows[0]?.family_name || '您的家族',
-      paths: processedPaths,
+      paths: uniquePaths,
       persons: persons.rows,
       historicalEvents: events
     });
@@ -723,6 +736,48 @@ function getStoryPeriod(familyName) {
   };
   return periods[familyName] || '近代';
 }
+
+// ============================================================
+// 路由：POST /amapapi/save-family-name/:familyId
+// ============================================================
+app.post('/amapapi/save-family-name/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  const { familyName } = req.body;
+  log.db(`[save-family-name] familyId=${familyId} name=${familyName}`);
+
+  try {
+    await db.query(
+      'UPDATE family_profiles SET family_name = $1 WHERE id = $2',
+      [familyName, familyId]
+    );
+    log.db(`[save-family-name] 保存成功`);
+    res.json({ success: true });
+  } catch (err) {
+    log.error('[save-family-name] 失败:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：POST /amapapi/save-person-name/:familyId
+// ============================================================
+app.post('/amapapi/save-person-name/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  const { personId, name } = req.body;
+  log.db(`[save-person-name] familyId=${familyId} personId=${personId} name=${name}`);
+
+  try {
+    await db.query(
+      'UPDATE persons SET name = $1 WHERE internal_id = $2 AND family_id = $3',
+      [name, personId, familyId]
+    );
+    log.db(`[save-person-name] 保存成功`);
+    res.json({ success: true });
+  } catch (err) {
+    log.error('[save-person-name] 失败:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // ============================================================
 // 路由：POST /amapapi/save-edit/:familyId
@@ -842,6 +897,65 @@ app.post('/amapapi/save-edit/:familyId', async (req, res) => {
 
   } catch (err) {
     log.error('[save-edit] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：DELETE /amapapi/migration/:pathId
+// ============================================================
+app.delete('/amapapi/migration/:pathId', async (req, res) => {
+  const { pathId } = req.params;
+  log.db(`[delete-migration] 删除迁徙记录 pathId=${pathId}`);
+
+  try {
+    await db.query('DELETE FROM migrations WHERE id = $1', [pathId]);
+    log.db(`[delete-migration] 删除成功 pathId=${pathId}`);
+    res.json({ success: true, deletedId: pathId });
+  } catch (err) {
+    log.error('[delete-migration] 删除失败:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：DELETE /amapapi/deduplicate-migrations/:familyId
+// ============================================================
+app.delete('/amapapi/deduplicate-migrations/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+  log.db(`[deduplicate] 开始清理 familyId=${familyId}`);
+
+  try {
+    const client = await db.connect();
+    await client.query('BEGIN');
+
+    // 找出所有重复记录，按 (person_id, year, from_place_raw, to_place_raw) 分组
+    // 保留 sequence_order 最小的记录
+    const duplicates = await client.query(`
+      SELECT id, person_id, year, from_place_raw, to_place_raw, sequence_order,
+             ROW_NUMBER() OVER (
+               PARTITION BY person_id, COALESCE(year, -9999), COALESCE(from_place_raw, ''), COALESCE(to_place_raw, '')
+               ORDER BY sequence_order
+             ) as rn
+      FROM migrations
+      WHERE family_id = $1
+    `, [familyId]);
+
+    const toDelete = duplicates.rows.filter(r => parseInt(r.rn) > 1);
+    let deletedCount = 0;
+
+    for (const row of toDelete) {
+      await client.query('DELETE FROM migrations WHERE id = $1', [row.id]);
+      deletedCount++;
+    }
+
+    await client.query('COMMIT');
+
+    log.db(`[deduplicate] 删除 ${deletedCount} 条重复记录`);
+    res.json({ success: true, deletedCount, remainingCount: duplicates.rows.length - deletedCount });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    log.error('[deduplicate] 清理失败:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

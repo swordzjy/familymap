@@ -352,10 +352,10 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   right:0;
   background:var(--gold);
   color:var(--night);
-  padding:10px 16px;
+  padding:8px 16px;
   cursor:pointer;
   border-top:1px solid var(--mist4);
-  animation:slideUp 0.3s ease;
+  animation:slideUp 0.15s ease-out;
 }
 @keyframes slideUp{
   from{transform:translateY(100%);opacity:0;}
@@ -796,6 +796,8 @@ function goToStoryTimeline() {
     alert('家族信息还在收集中，请继续对话，告诉我你的家人在哪里生活、去过哪些地方。');
     return;
   }
+  // 清理旧的 sessionStorage 数据，避免数据混乱
+  sessionStorage.removeItem('pending_chat_data');
   // Agent 已在对话中实时写入数据库，直接加载已有数据
   loadExistingData(state.familyId);
 }
@@ -877,12 +879,17 @@ function updateGuidanceCards(phase) {
 function checkResumeChat() {
   try {
     const session = JSON.parse(localStorage.getItem('chatSession') || '{}');
+    // 只在有 familyId 且用户未完成对话时显示（没有保存的迁徙数据）
     if (session.familyId && session.lastPrompt && session.lastUserInput) {
-      const banner = document.getElementById('resume-banner');
-      if (banner) {
-        banner.style.display = 'block';
-        banner.querySelector('.resume-banner-text').textContent =
-          `↺ 继续：${session.lastPrompt.slice(0, 30)}${session.lastPrompt.length > 30 ? '...' : ''}`;
+      // 检查是否已经有迁徙数据（如果有，说明用户已经看过地图，不需要续聊）
+      const hasMigrations = localStorage.getItem('family_migration_chat_state');
+      if (!hasMigrations) {
+        const banner = document.getElementById('resume-banner');
+        if (banner) {
+          banner.style.display = 'block';
+          banner.querySelector('.resume-banner-text').textContent =
+            `↺ 继续：${session.lastPrompt.slice(0, 30)}${session.lastPrompt.length > 30 ? '...' : ''}`;
+        }
       }
     }
   } catch (e) {
@@ -960,9 +967,9 @@ function saveChatSession() {
 const Danmaku = (() => {
   const TRACKS    = 3;
   const STYLES    = ['style-gold','style-cream','style-teal'];
-  const SPEED_MIN = 52;
-  const SPEED_MAX = 85;
-  const MIN_GAP   = 90;
+  const SPEED_MIN = 80;   // 加快最小速度
+  const SPEED_MAX = 120;  // 加快最大速度
+  const MIN_GAP   = 60;   // 减少最小间距
 
   const DEFAULT_POOL = [
     { text:'我叫王明，1985年生，老家黑龙江双城，现在住北京。',  hint:'名字·出生年份·老家·现居地' },
@@ -1060,7 +1067,8 @@ const Danmaku = (() => {
     start() {
       if (running) return;
       running = true;
-      [0, 1600, 3200].forEach((delay) => {
+      // 加快弹幕出现频率：0ms, 800ms, 1600ms
+      [0, 800, 1600].forEach((delay) => {
         const t = setTimeout(() => { if (running) fire(); }, delay);
         timers.push(t);
       });
