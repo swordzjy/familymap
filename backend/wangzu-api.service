@@ -1,0 +1,28 @@
+[Unit]
+Description=Wangzu Family Migration Platform API
+Documentation=file:///opt/wangzu-map/backend/DEPLOY_GUIDE.md
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/wangzu-map/backend
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3005
+# 如果 .env 文件在别处，取消下面的注释
+# EnvironmentFile=/opt/wangzu-map/backend/.env
+
+# 资源限制
+LimitNOFILE=65536
+Nice=-5
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
