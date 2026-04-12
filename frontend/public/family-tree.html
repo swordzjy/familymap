@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>家族树 - 旺祖</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #090806;
+  --ink: #1a1710;
+  --gold: #c8a96e;
+  --cream: #eee8d8;
+  --mist: rgba(238,232,216,0.3);
+  --male: #4A90E2;
+  --female: #E94B8A;
+  --unknown: #9E9E9E;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  color: var(--cream);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 顶部导航 */
+.nav-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: calc(6px + env(safe-area-inset-top)) 16px 6px;
+  background: rgba(9,8,6,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--mist);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--cream);
+  letter-spacing: 0.05em;
+}
+.nav-actions {
+  display: flex;
+  gap: 8px;
+}
+.nav-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 1px solid var(--mist);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--cream);
+  cursor: pointer;
+}
+.nav-btn.primary {
+  background: var(--gold);
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+/* 画布容器 */
+#tree-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 空状态 */
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  opacity: 0.3;
+  fill: var(--cream);
+}
+.empty-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  color: var(--cream);
+  margin-bottom: 8px;
+}
+.empty-desc {
+  font-size: 13px;
+  color: var(--mist);
+  margin-bottom: 24px;
+}
+
+/* 加载状态 */
+.loading {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(9,8,6,0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--mist);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--mist);
+}
+
+/* 底部工具栏 */
+.toolbar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(9,8,6,0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--mist);
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.toolbar button {
+  flex: 1;
+  max-width: 150px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: center;
+  background: var(--ink);
+  border: 1px solid var(--mist);
+  color: var(--cream);
+  cursor: pointer;
+}
+.toolbar button.primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink);
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="nav-bar">
+  <div class="nav-title" id="nav-title">家族树</div>
+  <div class="nav-actions">
+    <button class="nav-btn" onclick="goBack()">← 返回</button>
+    <button class="nav-btn primary" onclick="refreshTree()">刷新</button>
+  </div>
+</div>
+
+<!-- 画布 -->
+<canvas id="tree-canvas"></canvas>
+
+<!-- 空状态 -->
+<div id="empty-state" class="empty-state" style="display:none;">
+  <svg class="empty-icon" viewBox="0 0 24 24">
+    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+  </svg>
+  <div class="empty-title">暂无家族树数据</div>
+  <div class="empty-desc">家族树会根据已录入的家族成员自动生成</div>
+  <a href="mobile.html" class="nav-btn primary" style="padding:12px 32px;font-size:14px;text-decoration:none;">去录入成员 →</a>
+</div>
+
+<!-- 加载状态 -->
+<div id="loading" class="loading" style="display:none;">
+  <div class="spinner"></div>
+  <div class="loading-text">正在加载家族树...</div>
+</div>
+
+<!-- 底部工具栏 -->
+<div class="toolbar">
+  <button onclick="fitToScreen()">适应屏幕</button>
+  <button onclick="resetView()">重置视图</button>
+  <button class="primary" onclick="exportImage()">导出图片</button>
+</div>
+
+<script src="../js/kinship-db.js"></script>
+<script src="../js/visualization.js"></script>
+<script>
+const API_BASE = '';
+const familyId = new URLSearchParams(window.location.search).get('familyId') || localStorage.getItem('familyId');
+let graph = null;
+
+// 根据 relationType 推断性别
+function inferGenderFromRelationType(relationType) {
+  const maleTypes = ['self', 'father', 'grandfather_paternal', 'grandfather_maternal',
+                     'great_grandfather_paternal', 'great_grandfather_maternal',
+                     'uncle_paternal_elder', 'uncle_paternal_younger', 'uncle_maternal'];
+  const femaleTypes = ['mother', 'grandmother_paternal', 'grandmother_maternal',
+                       'great_grandmother_paternal', 'great_grandmother_maternal',
+                       'aunt_paternal', 'aunt_maternal'];
+  if (maleTypes.includes(relationType)) return 'male';
+  if (femaleTypes.includes(relationType)) return 'female';
+  return null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!familyId) {
+    alert('缺少 familyId 参数');
+    return;
+  }
+  loadFamilyTree();
+});
+
+async function loadFamilyTree() {
+  document.getElementById('loading').style.display = 'flex';
+
+  try {
+    // 获取家族成员
+    const res = await fetch(`${API_BASE}/amapapi/family-members/${familyId}`);
+    const data = await res.json();
+
+    if (!data.success || !data.members || data.members.length === 0) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('empty-state').style.display = 'block';
+      return;
+    }
+
+    // 转换为可视化格式
+    const members = data.members.map(m => ({
+      id: m.id,
+      name: m.name || m.role || '未知',
+      relation: m.relation || m.relationType || '未知',
+      relationType: m.relationType,
+      gender: inferGenderFromRelationType(m.relationType) || m.gender || 'unknown',
+      generation: m.generation || 0
+    }));
+
+    // 初始化可视化
+    const canvas = document.getElementById('tree-canvas');
+    graph = new FamilyVisualization('tree-canvas');
+    graph.setData(members);
+
+    document.getElementById('empty-state').style.display = 'none';
+
+  } catch (err) {
+    console.error('[family-tree] 加载失败:', err);
+    document.getElementById('empty-state').style.display = 'block';
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+function refreshTree() {
+  loadFamilyTree();
+}
+
+function fitToScreen() {
+  if (graph) graph.fitToScreen();
+}
+
+function resetView() {
+  if (graph) graph.resetView();
+}
+
+function exportImage() {
+  if (!graph) return;
+  const canvas = document.getElementById('tree-canvas');
+  const link = document.createElement('a');
+  link.download = `家族树-${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function goBack() {
+  window.history.back();
+}
+</script>
+</body>
+</html>

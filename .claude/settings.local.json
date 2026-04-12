@@ -40,7 +40,14 @@
       "Bash(psql:*)",
       "Bash(npm run:*)",
       "Bash(curl -s http://localhost:3000/amapapi/migration-map/test-family-001)",
-      "mcp__playwright__browser_run_code"
+      "mcp__playwright__browser_run_code",
+      "Bash(lsof -ti:3005)",
+      "Bash(curl -s -X POST http://localhost:3005/amapapi/analyze-narrative/family-test-id)",
+      "Bash(curl -s -X POST http://localhost:3005/amapapi/analyze-narrative/8f249c8d-faea-44aa-85f5-a24c8cbe421c)",
+      "Bash(kill 50408)",
+      "Bash(bash:*)",
+      "Bash(./server-manage.sh restart:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

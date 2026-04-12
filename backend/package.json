@@ -13,6 +13,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.16.4",
+    "openai": "^6.34.0",
     "pg": "^8.10.0"
   },
   "engines": {
@@ -23,8 +24,7 @@
     "claude",
     "ai",
     "map",
-    "gaode" 
-   
+    "gaode"
   ],
   "author": "swordzjy2026",
   "license": "MIT"

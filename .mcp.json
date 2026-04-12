@@ -5,6 +5,14 @@
       "command": "npx",
       "args": ["@playwright/mcp"],
       "env": {}
+    },
+    "obsidian": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@ansh/obsidian-mcp"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/Users/jianyu/Documents/WIKI/wangzu"
+      }
     }
   }
 }
