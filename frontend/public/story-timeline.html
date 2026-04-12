@@ -15,6 +15,15 @@
   --mist:rgba(238,232,216,0.5);--mist2:rgba(238,232,216,0.25);
   --mist3:rgba(238,232,216,0.1);--mist4:rgba(238,232,216,0.05);
   --purple:#a890e0;--teal:#3ec9a0;--coral:#e07258;--blue:#6aabdc;
+  /* 情绪标签颜色系统 - 8 种基础情绪 */
+  --emotion-hope:#e8d098;      /* 希望、期待 - 金色 */
+  --emotion-pride:#e07258;     /* 自豪、成就 - 红色 */
+  --emotion-struggle:#888888;  /* 奋斗、挣扎 - 灰色 */
+  --emotion-loss:#6aabdc;      /* 失去、离别 - 蓝色 */
+  --emotion-triumph:#3ec9a0;   /* 胜利、转折 - 绿色 */
+  --emotion-nostalgia:#a890e0; /* 怀念、眷恋 - 紫色 */
+  --emotion-belonging:#3ec9a0; /* 归属、团聚 - 青色 */
+  --emotion-change:#d4a056;    /* 变迁、不确定 - 橙色 */
   --serif:'Noto Serif SC',serif;--mono:'DM Mono',monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -491,6 +500,106 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
   color:var(--coral);
   border:1px solid rgba(224,114,88,0.3);
 }
+
+/* ============================================
+   情绪标签系统
+   ============================================ */
+.emotion-tags{
+  display:flex;gap:4px;flex-wrap:wrap;
+  margin-top:8px;
+}
+.emotion-tag{
+  font-size:9px;padding:3px 6px;border-radius:4px;
+  font-family:var(--mono);
+  font-weight:600;
+  border:1px solid rgba(255,255,255,0.2);
+}
+.emotion-tag.hope{ background:rgba(232,208,152,0.15); color:var(--emotion-hope); border-color:var(--emotion-hope); }
+.emotion-tag.pride{ background:rgba(224,114,88,0.15); color:var(--emotion-pride); border-color:var(--emotion-pride); }
+.emotion-tag.struggle{ background:rgba(136,136,136,0.15); color:var(--emotion-struggle); border-color:var(--emotion-struggle); }
+.emotion-tag.loss{ background:rgba(106,171,220,0.15); color:var(--emotion-loss); border-color:var(--emotion-loss); }
+.emotion-tag.triumph{ background:rgba(62,201,160,0.15); color:var(--emotion-triumph); border-color:var(--emotion-triumph); }
+.emotion-tag.nostalgia{ background:rgba(168,144,224,0.15); color:var(--emotion-nostalgia); border-color:var(--emotion-nostalgia); }
+.emotion-tag.belonging{ background:rgba(62,201,160,0.15); color:var(--emotion-belonging); border-color:var(--emotion-belonging); }
+.emotion-tag.change{ background:rgba(212,160,86,0.15); color:var(--emotion-change); border-color:var(--emotion-change); }
+
+/* ============================================
+   故事章节卡片
+   ============================================ */
+.story-chapters-section{
+  margin:16px 12px 12px;
+  padding-top:16px;
+  border-top:1px solid var(--mist4);
+}
+.chapter-card{
+  background:linear-gradient(135deg, var(--ink1) 0%, var(--ink0) 100%);
+  border:1px solid var(--mist4);
+  border-radius:10px;
+  padding:14px;
+  margin-bottom:12px;
+  position:relative;
+  overflow:hidden;
+}
+.chapter-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg, var(--mist3), var(--gold), var(--mist3));
+}
+.chapter-card.danger::before{
+  background:linear-gradient(90deg, var(--mist3), var(--coral), var(--mist3));
+}
+.chapter-card.choice::before{
+  background:linear-gradient(90deg, var(--mist3), var(--teal), var(--mist3));
+}
+.chapter-card.arrival::before{
+  background:linear-gradient(90deg, var(--mist3), var(--emotion-triumph), var(--mist3));
+}
+.chapter-card.anchor::before{
+  background:linear-gradient(90deg, var(--mist3), var(--emotion-nostalgia), var(--mist3));
+}
+.chapter-card.opening::before{
+  background:linear-gradient(90deg, var(--mist3), var(--emotion-hope), var(--mist3));
+}
+.chapter-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px;
+}
+.chapter-title{
+  font-family:var(--serif);font-size:14px;font-weight:500;
+  color:var(--cream);
+}
+.chapter-beat{
+  font-size:9px;color:var(--mist2);font-family:var(--mono);
+  text-transform:capitalize;
+  padding:2px 6px;border-radius:4px;
+  background:rgba(200,169,110,0.1);
+  color:var(--gold);
+}
+.chapter-narration{
+  font-size:13px;line-height:1.7;
+  color:var(--mist);
+  font-family:var(--serif);
+  margin-bottom:10px;
+}
+.chapter-context{
+  font-size:11px;color:var(--mist2);font-family:var(--mono);
+  padding:8px 10px;background:var(--ink0);
+  border-radius:6px;margin-bottom:8px;
+  border-left:2px solid var(--mist4);
+}
+.chapter-context-label{
+  color:var(--gold);margin-right:6px;
+  font-weight:600;
+}
+
+/* ============================================
+   查看故事按钮
+   ============================================ */
+.btn-story{
+  background:var(--gold);
+  color:var(--night);
+}
+.btn-story:active{opacity:0.8;}
+
 </style>
 </head>
 <body>
@@ -525,6 +634,8 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 <!-- 底部操作栏 -->
 <div class="action-bar" id="action-bar" style="display:none;">
   <a href="mobile-chat.html" class="btn btn-secondary">返回聊天</a>
+  <button class="btn btn-secondary" onclick="generateStory()" id="btn-generate-story">生成故事</button>
+  <button class="btn btn-secondary" onclick="loadChapters()" id="btn-view-story">查看故事</button>
   <button class="btn btn-primary" onclick="generateMap()">生成迁徙地图 →</button>
 </div>
 
@@ -694,6 +805,14 @@ function renderTimeline(data) {
   const familyName = data.family_name || data.familyName || '您的家族';
   const personCount = data.persons?.length || 0;
   const migrationCount = (data.migrations || data.paths)?.length || 0;
+
+  // 检查重复记录
+  const duplicates = data.duplicates;
+  if (duplicates && duplicates.count > 0) {
+    console.warn('[story-timeline] 检测到重复记录:', duplicates);
+    // 显示重复检测提示
+    showDuplicateWarning(duplicates);
+  }
 
   // 构建 personMap
   const personMap = {};
@@ -976,6 +1095,104 @@ function showSaveStatus(status, message) {
   }, 3000);
 }
 
+// 显示重复记录警告
+function showDuplicateWarning(duplicates) {
+  const content = document.getElementById('content');
+  const warningHtml = `
+    <div class="duplicate-warning" style="
+      background: rgba(255, 107, 107, 0.15);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 20px;
+    ">
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2" style="margin-right: 8px;">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <circle cx="12" cy="16" r="1"/>
+        </svg>
+        <span style="color: #ff6b6b; font-family: var(--serif); font-size: 15px; font-weight: 500;">
+          检测到 ${duplicates.count} 条重复迁徙记录
+        </span>
+      </div>
+      <div style="color: var(--mist2); font-size: 13px; margin-bottom: 12px;">
+        以下记录已被自动合并（保留最早保存的记录）：
+      </div>
+      <div style="max-height: 150px; overflow-y: auto;">
+        ${duplicates.records.slice(0, 5).map(r => `
+          <div style="
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: var(--cream);
+          ">
+            <span style="color: var(--gold);">${r.person_name || '未知'}</span>
+            <span style="color: var(--mist2); margin: 0 6px;">→</span>
+            <span>${r.from_place || '?'}</span>
+            <span style="color: var(--mist2); margin: 0 6px;">至</span>
+            <span>${r.to_place || '?'}</span>
+            ${r.year ? `<span style="color: var(--mist2); margin: 0 6px;">(${r.year}年)</span>` : ''}
+          </div>
+        `).join('')}
+        ${duplicates.records.length > 5 ? `
+          <div style="color: var(--mist2); font-size: 12px; text-align: center; margin-top: 8px;">
+            还有 ${duplicates.records.length - 5} 条重复记录...
+          </div>
+        ` : ''}
+      </div>
+      <button onclick="deduplicateMigrations()" class="btn btn-secondary" style="
+        margin-top: 12px;
+        padding: 8px 16px;
+        font-size: 12px;
+        background: rgba(255, 107, 107, 0.2);
+        border: 1px solid rgba(255, 107, 107, 0.4);
+        color: #ff6b6b;
+      ">
+        清理重复记录
+      </button>
+    </div>
+  `;
+
+  // 插入到 content 最前面
+  content.insertAdjacentHTML('afterbegin', warningHtml);
+}
+
+// 清理重复记录
+async function deduplicateMigrations() {
+  if (!familyId) return;
+
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '清理中...';
+
+  try {
+    const res = await fetch(`${API_BASE}/deduplicate-migrations/${familyId}`, {
+      method: 'DELETE',
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      btn.textContent = '清理完成！';
+      btn.style.background = 'rgba(62, 201, 160, 0.2)';
+      btn.style.borderColor = 'rgba(62, 201, 160, 0.4)';
+      btn.style.color = '#3ec9a0';
+
+      // 1 秒后刷新页面
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      throw new Error(result.error || '清理失败');
+    }
+  } catch (err) {
+    console.error('[deduplicate] 清理失败:', err);
+    btn.textContent = '清理失败，请重试';
+    btn.disabled = false;
+  }
+}
+
 // 保存家族名
 function autoSaveFamilyName(element) {
   const newValue = element.textContent.trim();
@@ -1158,6 +1375,133 @@ function toggleEdit(pathId) {
 function generateMap() {
   window.location.href = `mobile.html?familyId=${familyId}`;
 }
+
+// 生成故事（调用叙事意图 Agent）
+async function generateStory() {
+  const btn = document.getElementById('btn-generate-story');
+  const originalText = btn.textContent;
+
+  // 显示加载状态
+  btn.disabled = true;
+  btn.textContent = '分析中...';
+
+  try {
+    // Step 1: 调用叙事意图 Agent 分析
+    console.log('[generate-story] Step 1: 调用叙事意图 Agent...');
+    const analyzeRes = await fetch(`${API_BASE}/analyze-narrative/${familyId}`, {
+      method: 'POST'
+    });
+    const analyzeData = await analyzeRes.json();
+
+    if (!analyzeData.success) {
+      throw new Error(analyzeData.error || '叙事分析失败');
+    }
+
+    console.log('[generate-story] 叙事蓝图:', analyzeData.blueprint);
+
+    // Step 2: 跳转到流式故事页面
+    console.log('[generate-story] Step 2: 跳转到 story.html 进行流式生成...');
+    window.location.href = `story.html?familyId=${familyId}`;
+
+  } catch (err) {
+    console.error('[generate-story] 错误:', err);
+    alert('故事生成失败：' + err.message);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// 查看故事章节
+async function loadChapters() {
+  const btn = document.getElementById('btn-view-story');
+  const originalText = btn.textContent;
+
+  // 显示加载状态
+  btn.disabled = true;
+  btn.textContent = '加载中...';
+
+  try {
+    console.log('[load-chapters] 开始加载章节...');
+    const res = await fetch(`${API_BASE}/story-chapters/${familyId}`);
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || '加载失败');
+    }
+
+    if (!data.chapters || data.chapters.length === 0) {
+      alert('暂无故事章节，请先生成故事');
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+
+    console.log('[load-chapters] 加载成功，章节数:', data.chapters.length);
+
+    // 渲染章节到页面
+    renderChapters(data.chapters);
+
+  } catch (err) {
+    console.error('[load-chapters] 错误:', err);
+    alert('加载故事失败：' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// 渲染故事章节
+function renderChapters(chapters) {
+  const content = document.getElementById('content');
+
+  // 移除已存在的章节区域（如果有）
+  const existingSection = document.querySelector('.story-chapters-section');
+  if (existingSection) {
+    existingSection.remove();
+  }
+
+  // 创建章节区域
+  const chaptersSection = document.createElement('div');
+  chaptersSection.className = 'story-chapters-section';
+
+  let html = `<div class="section-title">
+    <span>家族故事</span>
+    <span class="section-subtitle">共 ${chapters.length} 章节</span>
+  </div>`;
+
+  chapters.forEach(ch => {
+    const emotionTags = ch.emotion_tags || [];
+    const tagsHtml = emotionTags.map(tag =>
+      `<span class="emotion-tag ${tag}">${tag}</span>`
+    ).join('');
+
+    const contextText = ch.historical_context
+      ? (ch.historical_context.event_name || ch.historical_context.description || '历史背景')
+      : '无历史背景';
+
+    html += `
+      <div class="chapter-card ${ch.beat_type}">
+        <div class="chapter-header">
+          <span class="chapter-title">第${ch.sequence_order}章</span>
+          <span class="chapter-beat">${ch.beat_type}</span>
+        </div>
+        <div class="chapter-narration">${ch.narration}</div>
+        ${contextText ? `
+        <div class="chapter-context">
+          <span class="chapter-context-label">历史背景</span>${contextText}
+        </div>` : ''}
+        <div class="emotion-tags">${tagsHtml}</div>
+      </div>
+    `;
+  });
+
+  chaptersSection.innerHTML = html;
+  content.appendChild(chaptersSection);
+
+  // 滚动到章节区域
+  chaptersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 
 // ============================================================
 // 移动端滚动声音反馈（类似日历 App）
