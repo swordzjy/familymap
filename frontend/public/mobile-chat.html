@@ -782,8 +782,23 @@ inputEl.addEventListener('keydown', (e) => {
 
 // ── 重置聊天 ──────────────────────────────────────────────
 
-function resetChat() {
+async function resetChat() {
   if (!confirm('确定要清除所有聊天记录并重新开始吗？')) return;
+
+  // 如果有 familyId，先调用后端清除数据库数据
+  if (state.familyId) {
+    try {
+      const response = await fetch(`${API_BASE}/reset-family/${state.familyId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        console.warn('清除后端数据失败');
+      }
+    } catch (e) {
+      console.warn('清除后端数据异常:', e);
+    }
+  }
+
   clearState();
   location.reload();
 }

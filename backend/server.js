@@ -7,6 +7,7 @@ const cors    = require('cors');
 const { Pool } = require('pg');
 const Anthropic = require('@anthropic-ai/sdk');
 const axios   = require('axios');
+const { KinshipDB } = require('./utils/kinship-db');
 require('dotenv').config();
 
 // ============================================================
@@ -34,6 +35,7 @@ const log = {
   error:   (...a) => console.error(ts(), C.red + '[ERROR]' + C.reset, ...a),
   db:      (...a) => console.log(ts(), C.blue  + '[DB]'    + C.reset, ...a),
   ai:      (...a) => console.log(ts(), C.blue  + '[AI]'    + C.reset, ...a),
+  nlp:     (...a) => console.log(ts(), C.blue  + '[NLP]'   + C.reset, ...a),
   req:     (...a) => console.log(ts(), C.bold  + '[REQ]'   + C.reset, ...a),
   stream:  (...a) => process.stdout.write(C.gray + a.join('') + C.reset),
 };
@@ -45,6 +47,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('../frontend/public'));
+app.use('/js', express.static('../frontend/js'));
 
 // 全局请求日志中间件
 app.use((req, _res, next) => {
@@ -152,6 +155,7 @@ const QWEN_MODEL_HEAVY = process.env.QWEN_MODEL_HEAVY || 'qwen-max';
 // 高德地图
 // ============================================================
 const { AmapClient } = require('./amap');
+const FamilyNLPProcessor = require('./utils/nlp-service');
 const amapClient = new AmapClient(
   process.env.AMAP_KEY,
   process.env.AMAP_JSCODE
@@ -669,7 +673,34 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
     const persons = await db.query(`SELECT * FROM persons WHERE family_id=$1 ORDER BY generation DESC`, [familyId]);
     const family = await db.query(`SELECT family_name FROM family_profiles WHERE id=$1`, [familyId]);
 
-    log.db(`[migration-map] paths=${uniquePaths.length}  persons=${persons.rows.length}`);
+    // 修复 persons 数据：去重 + generation 符号转换
+    const personMap = new Map();
+    for (const m of persons.rows) {
+      const key = m.name || m.role;
+      const existing = personMap.get(key);
+      const relationType = mapRoleToRelationType(m.role);
+
+      // 数据库中的 generation 是正数（1=父辈，2=祖父辈），需要转换为负数
+      const dbGen = m.generation !== null ? (m.generation > 0 ? -m.generation : m.generation) : null;
+      const mappedGen = mapRoleToGeneration(m.role);
+      const finalGen = dbGen !== null ? dbGen : mappedGen;
+
+      const isNewBetter = !existing ||
+        (relationType !== 'unknown' && existing.relationType === 'unknown') ||
+        (finalGen !== 0 && existing.generation === 0);
+
+      if (isNewBetter) {
+        personMap.set(key, {
+          ...m,
+          generation: finalGen,
+          relationType: relationType,
+          gender: m.gender || inferGenderFromRole(m.role) || 'unknown'
+        });
+      }
+    }
+    const fixedPersons = { rows: Array.from(personMap.values()) };
+
+    log.db(`[migration-map] paths=${uniquePaths.length}  persons=${fixedPersons.rows.length}`);
 
     const events = [];
     for (const row of uniquePaths) {
@@ -710,7 +741,7 @@ app.get('/amapapi/migration-map/:familyId', async (req, res) => {
       success: true,
       familyName: family.rows[0]?.family_name || '您的家族',
       paths: uniquePaths,
-      persons: persons.rows,
+      persons: fixedPersons.rows,
       historicalEvents: events,
       // 重复检测信息（如果有）
       duplicates: duplicates.length > 0 ? {
@@ -3052,6 +3083,171 @@ app.use((err, req, res, _next) => {
   log.error('未捕获路由错误:', err.message);
   res.status(500).json({ success: false, error: err.message });
 });
+
+// ============================================================
+// 路由：POST /amapapi/parse-family-nlp
+// 使用 FamilyNLPProcessor 解析自然语言输入
+// ============================================================
+app.post('/amapapi/parse-family-nlp', async (req, res) => {
+  const { text } = req.body || {};
+
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ success: false, error: '缺少 text 参数' });
+  }
+
+  log.nlp(`[parse-family-nlp] 解析输入：${text.slice(0, 100)}...`);
+
+  try {
+    const nlp = new FamilyNLPProcessor();
+    const result = nlp.parse(text);
+
+    res.json({ success: true, ...result });
+
+  } catch (err) {
+    log.error('[parse-family-nlp] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 路由：GET /amapapi/family-members/:familyId
+// 获取指定家族的所有成员（用于家族树可视化）
+// ============================================================
+app.get('/amapapi/family-members/:familyId', async (req, res) => {
+  const { familyId } = req.params;
+
+  log.info(`[family-members] 查询 familyId=${familyId}`);
+
+  try {
+    // 查询成员
+    const membersRes = await db.query(`
+      SELECT id, name, role, gender, generation, created_at
+      FROM persons
+      WHERE family_id = $1
+      ORDER BY generation ASC, created_at ASC
+    `, [familyId]);
+
+    if (membersRes.rows.length === 0) {
+      return res.json({ success: true, members: [] });
+    }
+
+    // 去重：按 name 分组，优先保留有明确关系的记录
+    const memberMap = new Map();
+    for (const m of membersRes.rows) {
+      const key = m.name || m.role;
+      const existing = memberMap.get(key);
+      const relationType = mapRoleToRelationType(m.role);
+
+      // 数据库中的 generation 是正数（1=父辈，2=祖父辈），需要转换为负数
+      const dbGen = m.generation !== null ? (m.generation > 0 ? -m.generation : m.generation) : null;
+      const mappedGen = mapRoleToGeneration(m.role);
+      const finalGen = dbGen !== null ? dbGen : mappedGen;
+
+      const isNewBetter = !existing ||
+        (relationType !== 'unknown' && existing.relationType === 'unknown') ||
+        (finalGen !== 0 && existing.generation === 0);
+
+      if (isNewBetter) {
+        memberMap.set(key, {
+          id: m.id,
+          name: m.name || m.role || '未知',
+          relation: m.role || '未知',
+          relationType: relationType,
+          gender: m.gender || inferGenderFromRole(m.role) || 'unknown',
+          generation: finalGen
+        });
+      }
+    }
+
+    const members = Array.from(memberMap.values());
+
+    res.json({
+      success: true,
+      members,
+      relationships: []
+    });
+
+  } catch (err) {
+    log.error('[family-members] 异常:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 辅助函数：角色映射到 relationType
+// ============================================================
+
+// KinshipDB 是单例对象，直接使用
+const { KinshipDB: kinshipDB } = require('./utils/kinship-db');
+const ROLE_TO_RELATION_TYPE = new Map();
+
+// 构建反向映射表：从所有 aliases 映射到 relationType id
+function initRelationTypeMap() {
+  const allRelations = kinshipDB.getAll();
+  allRelations.forEach(rel => {
+    // displayName 映射
+    ROLE_TO_RELATION_TYPE.set(rel.displayName, rel.id);
+    // 所有 aliases 映射
+    rel.aliases.forEach(alias => {
+      // 去除口语化前缀，如"我叫"、"我是"等
+      const cleanAlias = alias.replace(/(我叫 | 我是 | 我的名字是 | 的)$/, '');
+      if (cleanAlias) {
+        ROLE_TO_RELATION_TYPE.set(cleanAlias, rel.id);
+      }
+    });
+  });
+  console.log(`[initRelationTypeMap] 已加载 ${ROLE_TO_RELATION_TYPE.size} 个关系映射`);
+}
+
+// 在服务器启动时初始化
+initRelationTypeMap();
+
+function mapRoleToRelationType(role) {
+  // 直接从 KinshipDB 映射表查找
+  const relationType = ROLE_TO_RELATION_TYPE.get(role);
+  return relationType || 'unknown';
+}
+
+// 从 KinshipDB 生成性别映射表和代际映射表
+const MALE_ROLES = new Set();
+const FEMALE_ROLES = new Set();
+const ROLE_TO_GENERATION = new Map();
+
+// 初始化性别和代际映射
+function initGenderAndGenerationMap() {
+  const allRelations = kinshipDB.getAll();
+  allRelations.forEach(rel => {
+    // 性别映射
+    if (rel.gender === 'male') {
+      MALE_ROLES.add(rel.displayName);
+      rel.aliases.forEach(alias => MALE_ROLES.add(alias));
+    } else if (rel.gender === 'female') {
+      FEMALE_ROLES.add(rel.displayName);
+      rel.aliases.forEach(alias => FEMALE_ROLES.add(alias));
+    }
+
+    // 代际映射
+    ROLE_TO_GENERATION.set(rel.displayName, rel.generation);
+    rel.aliases.forEach(alias => {
+      ROLE_TO_GENERATION.set(alias, rel.generation);
+    });
+  });
+  console.log(`[initGenderAndGenerationMap] 已加载 ${MALE_ROLES.size} 个男性关系，${FEMALE_ROLES.size} 个女性关系，${ROLE_TO_GENERATION.size} 个代际映射`);
+}
+
+// 在服务器启动时初始化
+initGenderAndGenerationMap();
+
+function inferGenderFromRole(role) {
+  if (MALE_ROLES.has(role)) return 'male';
+  if (FEMALE_ROLES.has(role)) return 'female';
+  return 'unknown';
+}
+
+function mapRoleToGeneration(role) {
+  const gen = ROLE_TO_GENERATION.get(role);
+  return gen !== undefined ? gen : 0;
+}
 
 // ============================================================
 // 启动

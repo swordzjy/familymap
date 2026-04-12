@@ -431,6 +431,24 @@ html,body{width:100%;height:100%;background:var(--night);overflow:hidden;
 .section-subtitle{
   font-family:var(--mono);font-size:11px;color:var(--mist2);
 }
+.nav-btn{
+  font-size:13px;padding:8px 16px;
+  border:1px solid var(--mist);
+  border-radius:6px;
+  background:var(--ink0);
+  color:var(--cream);
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.nav-btn.primary{
+  background:var(--gold);
+  color:var(--ink0);
+  border-color:var(--gold);
+}
+.nav-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 2px 8px rgba(200,169,110,0.2);
+}
 .members-grid{
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));
@@ -893,21 +911,30 @@ function renderTimeline(data) {
   });
 
   // 渲染表格 - 代际标签
+  // generation: 负数=长辈，0=本人/配偶，正数=晚辈
   const genLabelMap = {
-    0: '本人',
-    1: '父辈',
-    2: '祖辈',
-    3: '曾祖辈',
-    4: '高祖辈',
-    '-1': '子辈',
-    '-2': '孙辈',
+    '-4': '太祖辈',
+    '-3': '曾祖辈',
+    '-2': '祖辈',
+    '-1': '父辈',
+    '0': '本人',
+    '1': '子辈',
+    '2': '孙辈',
+    '3': '曾孙辈',
   };
 
-  // 排序人物：本人优先，然后按辈分从高到低
+  // 按 role 判断是否为配偶（配偶 generation=0 但应该显示为"配偶"而非"本人"）
+  function getGenLabel(person) {
+    if (person.role === '妻子' || person.role === '丈夫' || person.role === '配偶') {
+      return '配偶';
+    }
+    return genLabelMap[person.generation] || `第${person.generation}代`;
+  }
+
+  // 排序人物：按辈分从高到低（太祖辈→祖辈→父辈→本人→子辈→孙辈）
   const sortedPersons = [...(data.persons || [])].sort((a, b) => {
-    if (a.generation === 0 && b.generation !== 0) return -1;
-    if (b.generation === 0 && a.generation !== 0) return 1;
-    return (b.generation || 0) - (a.generation || 0);
+    // generation 越小辈分越高（-4 最高，+3 最低）
+    return (a.generation || 0) - (b.generation || 0);
   });
 
   // 每个人内部的迁徙记录按时间排序
@@ -929,8 +956,11 @@ function renderTimeline(data) {
 
     if (paths.length === 0) return; // 没有迁徙记录的人不显示
 
-    const genLabel = genLabelMap[person.generation] || `第${person.generation}代`;
+    const genLabel = getGenLabel(person);
     const personName = person?.name && person.name !== '未知' ? person.name : person?.role || '未知';
+
+    // 调试输出
+    console.log(`[story-timeline] 渲染人物：${personId} - ${personName} (${person.role}) - 代际：${genLabel} - 迁徙数：${paths.length}`);
 
     // 每个人需要两行：第一行显示人名，第二行显示所有记录
     const personRow = document.createElement('tr');
@@ -1016,20 +1046,25 @@ function renderTimeline(data) {
       <span>家族成员</span>
       <span class="section-subtitle">共 ${personCount} 位</span>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <a href="family-tree.html?familyId=${familyId}" class="nav-btn primary" style="padding:8px 16px;font-size:13px;text-decoration:none;">
+        🌳 查看家族树 →
+      </a>
+    </div>
     <div class="members-grid" id="members-grid"></div>
   `;
   content.appendChild(membersSection);
 
-  // 按代际排序人物
+  // 按代际排序人物（辈分高的在前：太祖辈→祖辈→父辈→本人→子辈→孙辈）
   const sortedMembers = [...(data.persons || [])].sort((a, b) => {
-    const genDiff = (b.generation || 0) - (a.generation || 0);
+    const genDiff = (a.generation || 0) - (b.generation || 0);
     if (genDiff !== 0) return genDiff;
     return (a.birth_year || 9999) - (b.birth_year || 9999);
   });
 
   const membersGrid = document.getElementById('members-grid');
   sortedMembers.forEach(person => {
-    const genLabel = genLabelMap[person.generation] || `第${person.generation}代`;
+    const genLabel = getGenLabel(person);
 
     const hasMigration = migrations.some(m =>
       m.person_internal_id === person.internal_id || m.person_id === person.id
@@ -1211,6 +1246,8 @@ function autoSaveFamilyName(element) {
     if (result.success) {
       console.log('[save-family] 保存成功');
       showSaveStatus('saved', '已保存');
+      // 同步更新 localStorage 供 mobile-chat 使用
+      syncFamilyCache();
     } else {
       throw new Error(result.error || '保存失败');
     }
@@ -1245,6 +1282,8 @@ function autoSavePersonName(element, personId) {
         const person = currentData.persons.find(p => (p.internal_id || p.id) === personId);
         if (person) person.name = newValue;
       }
+      // 同步更新 localStorage 供 mobile-chat 使用
+      syncFamilyCache();
     } else {
       throw new Error(result.error || '保存失败');
     }
@@ -1323,6 +1362,8 @@ function autoSave(element) {
       if (updates.toPlace) { path.to_place = updates.toPlace; path.to_place_raw = updates.toPlace; }
       if (updates.reason) path.reason = updates.reason;
       showSaveStatus('saved', '已保存');
+      // 同步更新 localStorage 供 mobile-chat 使用
+      syncFamilyCache();
     } else {
       throw new Error(result.error || '保存失败');
     }
@@ -1333,6 +1374,31 @@ function autoSave(element) {
     // 恢复原文本
     element.textContent = path[field] || path[`${field}_raw`] || '';
   });
+}
+
+// 同步更新 localStorage 缓存
+function syncFamilyCache() {
+  if (!familyId || !currentData) return;
+  try {
+    const cacheKey = 'family_migration_chat_state';
+    const saved = localStorage.getItem(cacheKey);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.familyId === familyId) {
+        // 更新缓存中的家族数据
+        parsed.familyData = {
+          family_name: currentData.family_name || currentData.familyName,
+          persons: currentData.persons,
+          migrations: currentData.migrations || currentData.paths,
+          relationships: currentData.relationships,
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(parsed));
+        console.log('[syncFamilyCache] 已更新 localStorage');
+      }
+    }
+  } catch (e) {
+    console.warn('[syncFamilyCache] 同步失败:', e);
+  }
 }
 
 // 删除迁徙记录
@@ -1354,6 +1420,8 @@ function deletePath(pathId) {
         const idx = currentData.migrations.findIndex(p => (p.internal_id || p.id) === pathId);
         if (idx !== -1) currentData.migrations.splice(idx, 1);
       }
+      // 同步更新 localStorage 供 mobile-chat 使用
+      syncFamilyCache();
       // 重新渲染页面
       setTimeout(() => window.location.reload(), 1000);
     } else {
